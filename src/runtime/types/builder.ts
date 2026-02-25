@@ -2,12 +2,12 @@ import type { MakeForeign, WithForeignParams } from './foreign'
 import type { Collection } from '.'
 import type { MakeSubset, Subset, WithSubsetParams } from './subset'
 
-export type CollectionBuilder<
+export interface CollectionBuilder<
     Schema,
     SearchParams = never,
     Foreign = {},
     Subsets extends Subset = never,
-> = {
+> {
 
     withIdField(field: string): CollectionBuilder<Schema, SearchParams, Foreign, Subset>
 
@@ -24,13 +24,12 @@ export type CollectionBuilder<
         FSchema,
         FSearchParams extends Record<string, any>,
         FForeign,
-        Params extends WithForeignParams<Schema, FSearchParams, IsList>,
+        const Params extends WithForeignParams<Schema, FSearchParams, IsList>,
         IsList = Params extends { list: true } ? true : false,
     >(
         field: FieldName,
-        collection: Collection<FSchema, FSearchParams, FForeign, never> | (
-            () => Collection<FSchema, FSearchParams, FForeign, never>
-        ),
+        // Utilisation d'une interface générique ici pour briser la chaîne de récursion
+        collection: Collection<FSchema, FSearchParams, FForeign, any> | (() => Collection<FSchema, FSearchParams, FForeign, any>),
         params?: Params
     ): CollectionBuilder<
         Schema,
