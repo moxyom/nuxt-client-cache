@@ -1,5 +1,6 @@
-// @ts-check
 import { createConfigForNuxt } from '@nuxt/eslint-config/flat'
+import prettierPlugin from 'eslint-plugin-prettier'
+import prettierConfig from 'eslint-config-prettier'
 
 // Run `npx @eslint/config-inspector` to inspect the resolved config interactively
 export default createConfigForNuxt({
@@ -14,6 +15,13 @@ export default createConfigForNuxt({
             './playground',
         ],
     },
-}).append(
-    // your custom flat config here...
-)
+    plugins: {
+        prettier: prettierPlugin,
+      },
+      rules: {
+        'prettier/prettier': 'error',
+        semi: ['error', 'never'],
+        'operator-linebreak': ['error', 'before'],
+        'multiline-ternary': ['error', 'always-multiline'],
+      },
+}).append(prettierConfig)

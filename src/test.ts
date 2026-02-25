@@ -19,7 +19,19 @@ const fetchAllUsers = async () => {
 }
 
 
+const commentCache = useCollectionBuilder<Comment>("comment", fetchCommentById /*fonction async*/)
+    .withForeign("user_slug_field", userCache, { searchBy: "slug" })
+    .build()
 
+const postCache = useCollectionBuilder<Post>("post", fetchPostById /*fonction async*/)
+    .withForeign("comments_list_field", commentCache, { list: true })
+    .build()
+
+const userCache = useCollectionBuilder<User>("user", fetchUserById /*fonction async*/)
+    .withCustomSearch("slug", fetchUserBySlug /*fonction async*/)
+    .withForeign("posts_list_field", postCache, { list: true })
+    .withSubset("all", { fetchAll: fetchAllUsers, isIncluded: isUserIncludedInAll })
+    .build()
 
 
 
