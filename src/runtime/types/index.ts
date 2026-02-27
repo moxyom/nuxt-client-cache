@@ -14,13 +14,13 @@ type ReturnTypeFor<Schema, Foreign, Params, Depth extends any[] = []> =
             [K in keyof Foreign as `with${Capitalize<K & string>}` extends keyof Params
                 ? (Params[`with${Capitalize<K & string>}` & keyof Params] extends false ? never : K)
                 : never // on trie les clé de Foreign, on garde que celles qui existe dans Params (avec le with)
-            ]: Foreign[K] extends { collection: Collection<infer FSchema, infer FForein, any, any>, isList: infer IsList }
+            ]: Foreign[K] extends { collection: Collection<infer FSchema, infer FForeign, any, any>, isList: infer IsList }
                 ? `with${Capitalize<K & string>}` extends keyof Params // nécéssaire pour que TS explose pas
                     ? (
                         Params[`with${Capitalize<K & string>}`] extends true
                             ? FSchema // si c'est juste true, alors ça sera le foreign schema RAW
                              // sinon ça sera le foreign schema, repassé dans ce type
-                            : ReturnTypeFor<FSchema, FForein, Params[`with${Capitalize<K & string>}`], [...Depth, any]>
+                            : ReturnTypeFor<FSchema, FForeign, Params[`with${Capitalize<K & string>}`], [...Depth, any]>
                     ) extends infer Result
                         ? IsList extends true ? Result[] : Result
                         : never
@@ -46,7 +46,7 @@ export type ParamsFor<Foreign> = {
 type SearchEntryToParams<Name, Entry> = {
     searchBy: Name,
 } & Entry extends (p: infer SearchParams) => any
-    ? SearchParams
+    ? (SearchParams extends Record<string, any> ? SearchParams : never) 
     : never
 
 // soit on recherche par id
@@ -60,9 +60,12 @@ type SearchParams<Search, Foreign> = (
 type SearchFunction<Schema, Search, Foreign> =
     <const Params extends SearchParams<Search, Foreign>>(
         p: Params
-    ) => Promise<ShallowRef<ReturnTypeFor<Schema, Foreign, Params>> | CacheError>
+    ) => Promise<ShallowRef<ReturnTypeFor<Schema, Foreign, Params> | CacheError>>
 
-
+type SubsetSearchFunction<Schema, Search, Foreign> =
+    <const Params extends SearchParams<Search, Foreign>>(
+        p: Params
+    ) => Promise<ShallowRef<ReturnTypeFor<Schema, Foreign, Params>[] | CacheError>>
 
 
 // ============= Type de Collection =============
@@ -73,14 +76,14 @@ export interface AnyCollection {
     [key: string]: any; // Permet l'accès aux subsets et à l'appel de fonction
 }
 
-export interface ForeignEntry<Schema = any> {
-    collection: AnyCollection | (() => AnyCollection);
+export interface ForeignEntry<FSchema, FForeign> {
+    collection: Collection<FSchema, FForeign, any, any> | (() => Collection<FSchema, FForeign, any, any>);
     isList?: boolean;
-    searchBy?: string | { name: string; transform: (o: Schema) => any };
+    searchBy?: string | { name: string; transform: (o: FSchema) => FSchema };
 }
 
 export interface SearchBase<Schema> {
-    [key: string]: (params: object) => Promise<Schema | string | null>;
+    [key: string]: (params: any) => Promise<Schema | string | null>;
 }
 
 export interface SubsetEntry<Schema> {
@@ -99,5 +102,19 @@ export type Collection<
     remove(id: string): void;
     refetch(id: string): Promise<void>;
 } & {
-    [S in keyof Subset]: SearchFunction<Schema, Search, Foreign>
+    [S in keyof Subset]: SubsetSearchFunction<Schema, Search, Foreign>
 } & SearchFunction<Schema, Search, Foreign>
+
+export type DefineCollectionFn = <
+    Schema, 
+    const Foreign = Record<string, ForeignEntry<any, any>>,
+    const Search = SearchBase<Schema>, 
+    const Subset = Record<string, SubsetEntry<Schema>>
+>(
+    name: string,
+    config: {
+        foreign?: Foreign,
+        search?: Search
+        subset?: Subset
+    }
+) => Collection<Schema, Foreign, Search, Subset>
