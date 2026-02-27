@@ -1,3 +1,3 @@
-import type { DefineCollectionFn } from "../types";
+import type { CollectionBuilder } from "../types";
 
-export const defineCollection = {} as unknown as DefineCollectionFn
+export const defineCollection = {} as unknown as <Schema>(name: string) => CollectionBuilder<Schema>

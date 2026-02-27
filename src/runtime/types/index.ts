@@ -46,7 +46,7 @@ export type ParamsFor<Foreign> = {
 type SearchEntryToParams<Name, Entry> = {
     searchBy: Name,
 } & Entry extends (p: infer SearchParams) => any
-    ? (SearchParams extends Record<string, any> ? SearchParams : never) 
+    ? (SearchParams extends Record<string, any> ? SearchParams : never)
     : never
 
 // soit on recherche par id
@@ -76,21 +76,33 @@ export interface AnyCollection {
     [key: string]: any; // Permet l'accès aux subsets et à l'appel de fonction
 }
 
-export interface ForeignEntry<FSchema, FForeign> {
-    collection: Collection<FSchema, FForeign, any, any> | (() => Collection<FSchema, FForeign, any, any>);
-    isList?: boolean;
-    searchBy?: string | { name: string; transform: (o: FSchema) => FSchema };
+export type ForeignEntry<FSchema, FForeign, List, FSearch> = {
+    collection: Collection<FSchema, any, FForeign, any> | (() => Collection<FSchema, any, FForeign, any>);
+    list?: List;
+    searchBy?:
+        | string
+        | (
+            FSearch extends Record<string, any>
+                ? { [K in keyof FSearch]: { name: K, transform: (o: FSchema) => FSearch[K] } }[keyof FSearch]
+                : never
+        )
 }
 
+export type SearchEntry<Schema, SearchParams> = (params: SearchParams) => Promise<Schema | string | null>
 export interface SearchBase<Schema> {
     [key: string]: (params: any) => Promise<Schema | string | null>;
 }
 
-export interface SubsetEntry<Schema> {
-    isIncluded: (object: Schema) => boolean;
-    fetchAll?: () => Promise<string[] | null>;
-    fetchRange?: (start: number, end: number) => Promise<string[] | null>;
-}
+export type SubsetEntry<Schema, FetchAll, FetchRange> = {
+    isIncluded: (object: Schema) => boolean
+} & (
+    FetchAll extends true
+        ? { fetchAll?: () => Promise<string[] | null>; }
+        : object
+) & (FetchRange extends true
+    ? { fetchRange?: (start: number, end: number) => Promise<string[] | null> }
+    : object
+)
 
 export type Collection<
     Schema,
@@ -105,16 +117,60 @@ export type Collection<
     [S in keyof Subset]: SubsetSearchFunction<Schema, Search, Foreign>
 } & SearchFunction<Schema, Search, Foreign>
 
-export type DefineCollectionFn = <
-    Schema, 
-    const Foreign = Record<string, ForeignEntry<any, any>>,
-    const Search = SearchBase<Schema>, 
-    const Subset = Record<string, SubsetEntry<Schema>>
->(
-    name: string,
-    config: {
-        foreign?: Foreign,
-        search?: Search
-        subset?: Subset
-    }
-) => Collection<Schema, Foreign, Search, Subset>
+
+
+// ============= Builder =============
+export interface CollectionBuilder<
+    Schema,
+    Search = { id: string },
+    Foreign = {},
+    Subset = object
+> {
+
+    withIdField(field: string): CollectionBuilder<Schema, Search, Foreign, Subset>
+
+    canSearchBy: <
+        const Name extends string,
+        const Params extends object,
+    >(
+        name: Name,
+        searchFn: (p: Params) => Promise<Schema | string | null>
+    ) => CollectionBuilder<
+        Schema,
+        Search & { [k in Name]: SearchEntry<Schema, Params> },
+        Foreign,
+        Subset
+    >
+
+    withForeign: <
+        const Name extends string,
+        const FSchema,
+        const FForeign,
+        const List,
+        const FSearch,
+    >(
+        name: Name,
+        p: ForeignEntry<FSchema, FForeign, List, FSearch>
+    ) => CollectionBuilder<
+        Schema,
+        Search,
+        Foreign & { [k in Name]: ForeignEntry<FSchema, FForeign, List, FSearch> },
+        Subset
+    >
+
+    withSubset<
+        const Name extends string,
+        const FetchAll extends boolean,
+        const FetchRange extends boolean,
+    >(
+        name: Name,
+        params: SubsetEntry<Schema, FetchAll, FetchRange>
+    ): CollectionBuilder<
+        Schema,
+        Search,
+        Foreign,
+        Subset & { [k in Name]: SubsetEntry<Schema, FetchAll, FetchRange> }
+    >
+
+    build(): Collection<Schema, Search, Foreign, Subset>
+}

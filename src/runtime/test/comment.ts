@@ -1,4 +1,4 @@
-import { userCollection } from "../user";
+// import { userCollection } from "../user";
 import { defineCollection } from "./common";
 
 interface Comment {
@@ -7,8 +7,5 @@ interface Comment {
     writer: string
 }
 
-export const commentCollection = defineCollection<Comment>("comment", {
-    foreign: { 
-        writer: { collection: userCollection }
-    }
-})
+export const commentCollection = defineCollection<Comment>("comment")
+    .build()

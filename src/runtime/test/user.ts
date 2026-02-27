@@ -1,4 +1,4 @@
-import { postCollection } from "../posts";
+import { postCollection } from "./post";
 import { defineCollection } from "./common";
 
 interface User {
@@ -8,20 +8,8 @@ interface User {
     posts: string[]
 }
 
-export const userCollection = defineCollection<User>("user", {
-    foreign: {
-        posts: { collection: postCollection, isList: true }
-    },
-    search: {
-        username: async (params: { username: string }) => {
-            return {
-                id: "",
-                username: params.username,
-                age: 18,
-                posts: []
-            }
-        }
-    }
-})
+export const userCollection = defineCollection<User>("user")
+    .withForeign("posts", { collection: postCollection, list: true })
+    .build()
 
 userCollection({ id: "" })

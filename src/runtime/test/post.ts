@@ -1,4 +1,4 @@
-import { commentCollection } from "../comments";
+import { commentCollection } from "./comment";
 import { defineCollection } from "./common";
 
 interface Post {
@@ -7,8 +7,6 @@ interface Post {
     comments: string[]
 }
 
-export const postCollection = defineCollection<Post>("post", {
-    foreign: {
-        comments: { collection: commentCollection, isList: true }
-    }
-})
+export const postCollection = defineCollection<Post>("post")
+    .withForeign("comment", { collection: commentCollection, list: true })
+    .build()
