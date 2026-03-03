@@ -1,3 +1,3 @@
-import { useCollectionBuilder } from "../core"
+import { defineMoxCacheCollection } from "../core"
 
-export default useCollectionBuilder
+export default defineMoxCacheCollection

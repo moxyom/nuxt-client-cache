@@ -1,16 +1,15 @@
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 import { useNuxtApp } from "#app"
-import type { Collection } from "../types"
-import type { CollectionBuilder } from "../types/builder"
-import type { WithForeignParams, MakeForeign } from "../types/foreign"
-import type { CacheCollectionEntry } from "../types/store"
-import type { Subset, WithSubsetParams } from "../types/subset"
-import { createCollection } from "./collection"
+import type { CollectionBuilder, Collection, ForeignEntry, ShallowCollectionParams, SubsetEntry, SearchEntry } from "../types"
+import { BuilderError } from "../types/errors"
+import type { CacheCollectionEntry } from "../types/inner"
+import { createMoxCacheCollection } from "./collection"
 
-export function useCollectionBuilder<
+export function defineMoxCacheCollection<
     Schema,
-    SearchParams = {},
+    Search = { id: string },
     Foreign = {},
-    Subsets extends Subset = never
+    Subset = object
 >(
     collectionName: string,
     fetch: (id: string) => Promise<Schema | null>
@@ -20,63 +19,143 @@ export function useCollectionBuilder<
         fetch,
         store: new Map(),
         idField: "id",
+        searchMethodes: {},
         foreignIdFields: {},
         foreignIdListFields: {},
         subsets: {}
     }
 
-    const builder: CollectionBuilder<Schema, SearchParams, Foreign, Subsets> = {
+    const privateBuilder = {
+        _collectionName: collectionName
+    }
 
-        setIdField: (field: string) => {
-            collectionEntry.idField = field
+    const builder: CollectionBuilder<
+        Schema, 
+        Search, 
+        Foreign, 
+        Subset
+    > = Object.assign(privateBuilder as never, {
+
+        withIdField: (idField: keyof Schema & string) => {
+            collectionEntry.idField = idField
             return builder
         },
 
-        withForeign: <
-            const FieldName extends keyof Schema & string,
-            Params extends WithForeignParams<any, SearchParams>,
-            ForeignSchema = Params extends WithForeignParams<infer T, SearchParams> ? T : never
+        withSearch: <
+            const Name extends keyof Schema & string,
+            const Params extends object,
         >(
-            field: FieldName,
-            params: Params
+            name: Name,
+            searchFn: (p: Params) => Promise<Schema | string | null>
         ) => {
-            const record = params.list ?
+            collectionEntry.searchMethodes[name] = searchFn as 
+                (p: unknown) => Promise<Schema | string | null>
+
+            return builder as CollectionBuilder<
+                Schema,
+                Search & { [k in Name]: SearchEntry<Schema, Params> },
+                Foreign,
+                Subset
+            >
+        },
+
+        withForeign: <
+            const Name extends keyof Schema & string,
+            const FSchema,
+            const FForeign,
+            const List,
+            const FSearch,
+        >(
+            name: Name,
+            opt: ForeignEntry<Schema, FSchema, FForeign, List, FSearch>
+        ) => {
+            if (!("_collectionName" in opt.collection) || typeof opt.collection._collectionName != "string") {
+                throw new BuilderError(
+                    "object passed is no valid collection, please use the intended builder"
+                )
+            }
+
+            const foreignCollectionName = opt.collection._collectionName
+            const record = opt.list === true ?
                 collectionEntry.foreignIdListFields :
                 collectionEntry.foreignIdFields
 
-            record[field] = { collection: params.collection }
+            record[name] = { 
+                collection: () => foreignCollectionName,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                searchBy: (opt.searchBy as any)
+            }
 
-            return builder as CollectionBuilder<Schema, Foreign & MakeForeign<Field, Params, ForeignSchema>, Subsets>
+            return builder as CollectionBuilder<
+                Schema,
+                Search,
+                Foreign & { [k in Name]: ForeignEntry<Schema, FSchema, FForeign, List, FSearch> },
+                Subset
+            >
+        },
+
+        withShallowForeign: <
+            const FSchema,
+            const Name extends string, 
+            const List,
+        >(
+            name: Name,
+            opt: {
+                collection: ShallowCollectionParams<FSchema>
+                list?: List;
+                searchBy?: string | { name: string, transform: (o: Schema) => unknown }
+            }
+        ) => {
+            const record = opt.list === true ?
+                collectionEntry.foreignIdListFields :
+                collectionEntry.foreignIdFields
+
+            record[name] = { 
+                collection: () => opt.collection.name,
+                searchBy: opt.searchBy
+            }
+
+            return builder as CollectionBuilder<
+                Schema,
+                Search,
+                Foreign & { [k in Name]: ForeignEntry<Schema, FSchema, FSchema, List, object> },
+                Subset
+            >
         },
 
         withSubset: <
-            const SubsetName extends string,
-            const Params extends WithSubsetParams<Schema>
+            const Name extends string,
+            const FetchAll extends boolean,
+            const FetchRange extends boolean,
         >(
-            name: SubsetName,
-            params: Params
+            name: Name,
+            opt: SubsetEntry<Schema, FetchAll, FetchRange>
         ) => {
 
             collectionEntry.subsets[name] = {
                 store: new Map(),
-                ...params
+                ...opt
             }
 
-            return builder as CollectionBuilder<Schema, Foreign, Subsets | WithSubsetParamsToSubset<SubsetName, Params>>
+            return builder as CollectionBuilder<
+                Schema,
+                Search,
+                Foreign,
+                Subset & { [k in Name]: SubsetEntry<Schema, FetchAll, FetchRange> }
+            >
         },
 
-        build: (): Collection<Schema, Foreign, Subsets> => {
+        build: (): Collection<Schema, Search, Foreign, Subset> => {
             const { $moxClientCache } = useNuxtApp()
 
             // register collection
             $moxClientCache[collectionName] = collectionEntry
 
-            return createCollection<Schema, Foreign, Subsets>(
+            return createMoxCacheCollection<Schema, Search, Foreign, Subset>(
                 $moxClientCache, collectionEntry, collectionName
             )
         }
-    }
+    })
 
     return builder
 }
-

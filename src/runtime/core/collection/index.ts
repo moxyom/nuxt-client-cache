@@ -1,26 +1,26 @@
-import type { CacheCollectionEntry, Subset } from "@/src/runtime/types/inner";
-import type { CollectionBuilded, ToParams } from "@/src/runtime/types/public";
-import { get } from "./get";
-import { store } from "./store";
-import { remove } from "./remove";
-import { refetch } from "./refetch";
-import { createSubset } from "../subset";
+import { get } from "./get"
+import { store } from "./store"
+import { remove } from "./remove"
+import { refetch } from "./refetch"
+import { createSubset } from "../subset"
+import type { Collection, SearchParams } from "../../types"
+import type { CacheCollectionEntry } from "../../types/inner"
 
-export const createCollection = <
-    Schema,
-    Foreign,
-    Subsets extends Subset
+export const createMoxCacheCollection = <
+    Schema, 
+    Search, 
+    Foreign, 
+    Subset
 >(
-    collectionCache: Record<string, CacheCollectionEntry<any>>,
+    collectionCache: Record<string, CacheCollectionEntry<unknown>>,
     collectionEntry: CacheCollectionEntry<Schema>,
     collectionName: string,
-): CollectionBuilded<Schema, Foreign, Subsets> => {
+): Collection<Schema, Search, Foreign, Subset> => {
 
-    const fn = async <const Params extends ToParams<Foreign>>(
-        id: string, 
+    const fn = async <const Params extends SearchParams<Search, Foreign>>(
         params: Params
     ) => {
-        return get<Schema, Foreign, Params>(collectionCache, collectionName, id, params)
+        return get<Schema, Foreign, Params>(collectionCache, collectionName, params)
     }
 
     Object.assign(fn, {
@@ -30,12 +30,13 @@ export const createCollection = <
     })
 
     for (const [subsetName, entry] of Object.entries(collectionEntry.subsets)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (fn as any)[subsetName] = createSubset(entry)
     }
 
-    return fn as any
+    return fn as Collection<Schema, Search, Foreign, Subset>
 }
 
 export default {
-    createCollection
+    createMoxCacheCollection
 }

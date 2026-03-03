@@ -6,7 +6,7 @@ import { get } from "../collection/get"
 import { logger } from "@nuxt/kit"
 
 export function createIdsModifier(
-    collectionCache: Record<string, CacheCollectionEntry<any>>,
+    collectionCache: Record<string, CacheCollectionEntry<unknown>>,
     foreignCollection: string,
     errorField: string,
     triggerUpdate: (err?: CacheError) => void
@@ -15,10 +15,10 @@ export function createIdsModifier(
     interface State {
         watchers: Map<string, {
             unwatch: () => void,
-            foreign: ShallowRef<any>
+            foreign: ShallowRef<unknown>
             indexInList: number
         }>,
-        list: any[],
+        list: unknown[],
         isInit: boolean
     }
 
@@ -28,7 +28,7 @@ export function createIdsModifier(
         isInit: false
     }
 
-    const onListChange = async (ids: any[]): Promise<CacheError | void> => {
+    const onListChange = async (ids: unknown[]): Promise<CacheError | undefined> => {
 
         // perform reconciliation diff
         // modify ids and create watchers
@@ -72,7 +72,7 @@ export function createIdsModifier(
                     throw foreign.value.prefixFieldWith(errorField)
                 }
 
-                const onItemValueChange = (newItemValue: any | CacheError) => {
+                const onItemValueChange = (newItemValue: unknown | CacheError) => {
                     if (newItemValue instanceof CacheError) {
                         return triggerUpdate(
                             newItemValue.prefixFieldWith(errorField)

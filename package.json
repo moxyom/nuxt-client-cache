@@ -50,6 +50,7 @@
         "eslint": "^9.39.3",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-prettier": "^5.5.5",
+        "madge": "^8.0.0",
         "nuxt": "^4.2.2",
         "typescript": "~5.9.3",
         "vitest": "^4.0.17",

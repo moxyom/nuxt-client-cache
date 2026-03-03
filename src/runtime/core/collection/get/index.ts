@@ -1,10 +1,10 @@
 import { shallowRef, triggerRef, unref, watchEffect, type ShallowRef } from "vue";
-import type { CacheCollectionEntry } from "@/src/runtime/types/inner";
-import type { GetReturn, ToParams } from "@/src/runtime/types/public";
 import { CacheError } from "@/src/runtime/types/errors";
 import type { Modifier } from "../../modifiers";
 import { createIdsFieldMofifier } from "../../modifiers/list-field";
 import { createIdFieldModifier } from "../../modifiers/field";
+import type { ReturnTypeFor, SearchParams } from "~/src/runtime/types";
+import type { CacheCollectionEntry } from "~/src/runtime/types/inner";
 
 export function pluralize(str: string) {
     if (str.endsWith('y')) {
@@ -20,15 +20,15 @@ export function paramsNameFor(collectionName: string, idList: boolean) {
 }
 
 export async function get<
-    Schema,
+    Schema, 
+    Search, 
     Foreign,
-    const Params extends ToParams<Foreign>
+    const Params extends SearchParams<Search, Foreign>
 >(
-    collectionCache: Record<string, CacheCollectionEntry<any>>,
+    collectionCache: Record<string, CacheCollectionEntry<unknown>>,
     collectionName: string,
-    id: string,
     params: Params
-): GetReturn<Schema, Foreign, Params> {
+): Promise<ShallowRef<ReturnTypeFor<Schema, Foreign, Params> | CacheError>> {
 
     const collectionEntry = collectionCache[collectionName] as CacheCollectionEntry<Schema> | undefined
     if (!collectionEntry) {
@@ -37,6 +37,16 @@ export async function get<
             "No collection found for " + collectionName
         ))
     }
+
+
+    let id = params.id
+    if ("searchBy" in params) { 
+        params.searchBy
+        id = params.id 
+    }else {
+        const searchMethod = params.searchBy
+    }
+    collectionEntry.searchMethodes
 
     const stored = collectionEntry.store.get(id)
     let objectRef = stored ? stored : shallowRef(null)

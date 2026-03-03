@@ -1,9 +1,18 @@
+export class BuilderError extends Error {
+    constructor(message: string) {
+        super(message)
+
+        this.name = 'CacheError'
+        Object.setPrototypeOf(this, CacheError.prototype)
+    }
+}
+
 export class CacheError extends Error {
     constructor(
         public field: string,
         message: string
     ) {
-        super(message);
+        super(message)
 
         // ts 
         this.name = 'CacheError'

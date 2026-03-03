@@ -1,12 +1,14 @@
 import { commentCollection } from "./comment";
 import { defineCollection } from "./common";
 
-interface Post {
+export interface Post {
     id: string,
+    slug: string,
     postBody: string,
     comments: string[]
 }
 
 export const postCollection = defineCollection<Post>("post")
-    .withForeign("comment", { collection: commentCollection, list: true })
+    .withSearch("slug", async (_o: { slug: string }) => null)
+    .withForeign("comments", { collection: commentCollection, list: true })
     .build()
