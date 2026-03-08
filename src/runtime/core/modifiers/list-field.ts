@@ -1,44 +1,54 @@
 import type { Modifier } from ".";
+import type { SearchParams } from "../../types";
 import { CacheError } from "../../types/errors";
 import type { CacheCollectionEntry } from "../../types/inner";
-import { createIdsModifier } from "./list";
+import { get } from "../collection/get";
+import { createItemListModifier } from "./list";
 
-export function createIdsFieldMofifier(
-    collectionCache: Record<string, CacheCollectionEntry<any>>,
+export function createItemListFieldMofifier<
+    Schema extends Record<string, unknown>,
+    Field extends keyof Schema & string,
+    FSchema extends Record<string, unknown>,
+    FIdField extends string,
+    FSearch,
+    FForeign,
+    FParams extends SearchParams<FSearch, FForeign, FIdField>
+>(
+    collectionCache: Record<string, CacheCollectionEntry<unknown>>,
     currentCollection: string,
-    fieldName: string,
+    fieldName: Field,
     foreignCollection: string,
-    triggerUpdate: (err?: CacheError) => void
-): Modifier {
+    triggerUpdate: (err?: CacheError) => void,
+    toParams: (o: Schema, index: number) => FParams
+): Modifier<Schema> {
 
-    const listModifier = createIdsModifier(
-        collectionCache, 
-        foreignCollection, 
+    let currentObject: Schema
+    const listModifier = createItemListModifier(
         `${currentCollection}.${fieldName}`,
-        triggerUpdate
+        triggerUpdate,
+        (k: number) => get<FSchema, FSearch, FForeign, FIdField, FParams>(
+            collectionCache,
+            foreignCollection,
+            toParams(currentObject, k)
+        )        
     )
     
-    return async (object: any) => {
-        
-        // check that field exist and get the id
-        if (fieldName! in object) {
-            return new CacheError(
+    return async (object: Schema) => {
+
+        // check itemList's type
+        const itemList = object[fieldName]
+        if (!Array.isArray(itemList)) {
+            return triggerUpdate(new CacheError(
                 `${currentCollection}.${fieldName}`,
-                `field not found`
-            )
+                "must be an array"
+            ))
         }
 
-        // check id's type
-        const ids = object[fieldName]
-        if (!Array.isArray(ids)) {
-            return new CacheError(
-                `${currentCollection}.${fieldName}`,
-                `must be an array`
-            )
-        }
+        // remember object for toParams function
+        currentObject = object
 
         // call list modifier that will 
         // transform ids into actuals objects
-        return listModifier(ids)
+        return await listModifier(itemList)
     }
 }

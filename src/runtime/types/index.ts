@@ -43,32 +43,24 @@ export type ParamsFor<Foreign> = {
         )
 }
 
-// on lit le type Search et on renvoie un type d'objet
-// pour préciser par quoi on va rechercher
-type SearchEntryToParams<Name, Entry> = {
-    test: "test",
-    searchBy: Name,
-} & Entry extends (p: infer SearchParams) => any
-    ? SearchParams
-    : never
-
 // soit on recherche par id
 // soit on va rechercher par un type de search
 // et on ajoute tous les paramètres pour les foreigns
-export type SearchParams<Search, Foreign> = (
-    | { id: string }
-    | { [K in keyof Search]: SearchEntryToParams<K, Search[K]> }[keyof Search]
+export type SearchParams<Search, Foreign, IdField extends string> = (
+    | { [k in IdField]: string }
+    | { [K in keyof Search]: 
+        { searchBy: K } & 
+        (Search[K] extends (p: infer SearchParams) => any
+            ? SearchParams
+            : never
+        )
+    }[keyof Search]
 ) & ParamsFor<Foreign>;
 
-export type SearchFunction<Schema, Search, Foreign> =
-    <const Params = SearchParams<Search, Foreign>>(
+export type SearchFunction<Schema, Search, Foreign, IdField extends string> =
+    <const Params extends SearchParams<Search, Foreign, IdField>>(
         p: Params
     ) => Promise<ShallowRef<ReturnTypeFor<Schema, Foreign, Params> | CacheError>>
-
-type SubsetSearchFunction<Schema, Search, Foreign> =
-    <const Params = SearchParams<Search, Foreign>>(
-        p: Params
-    ) => Promise<ShallowRef<ReturnTypeFor<Schema, Foreign, Params>[] | CacheError>>
 
 
 // ============= Type de Collection =============
@@ -80,7 +72,7 @@ export interface AnyCollection {
 }
 
 export interface ForeignEntry<Schema, FSchema, FForeign, List, FSearch>{
-    collection: Collection<FSchema, object, FForeign, object> | (() => Collection<FSchema, object, FForeign, object>);
+    collection: Collection<FSchema, object, FForeign, object, string> | (() => Collection<FSchema, object, FForeign, object, string>);
     list?: List;
     searchBy?:
         | keyof FSearch & string
@@ -97,9 +89,6 @@ export interface ForeignEntry<Schema, FSchema, FForeign, List, FSearch>{
 }
 
 export type SearchEntry<Schema, SearchParams> = (params: SearchParams) => Promise<Schema | string | null>
-export interface SearchBase<Schema> {
-    [key: string]: (params: any) => Promise<Schema | string | null>;
-}
 
 export interface SubsetEntry<Schema, FetchAll, FetchRange> {
     isIncluded: (object: Schema) => boolean,
@@ -111,18 +100,47 @@ export interface SubsetEntry<Schema, FetchAll, FetchRange> {
         : never
 }
 
+export type SubsetAccessEntry<
+    Schema,
+    Search,
+    Foreign,
+    IdField extends string,
+    SEntry
+> = 
+    SEntry extends SubsetEntry<Schema, infer FetchAll, infer FetchRange> 
+    ? (
+        FetchAll extends true 
+            ? <const Params extends SearchParams<Search, Foreign, IdField>>(
+                p: Params
+            ) => Promise<ShallowRef<ReturnTypeFor<Schema, Foreign, Params>[] | CacheError>>
+            : never
+    ) & (
+        FetchRange extends true
+            ? { 
+                createIterator: <const Params extends SearchParams<Search, Foreign, IdField> & { step: number }>(
+                    params: Params
+                ) => Promise<{ 
+                    value: ShallowRef<ReturnTypeFor<Schema, Foreign, Params>[] | CacheError>,
+                    next?: () => Promise<undefined>
+                }>
+            }
+            : never
+    )
+    : never
+
 export type Collection<
     Schema,
     Search,
     Foreign,
-    Subset
+    Subset,
+    IdField extends string,
 > = {
     store(object: Schema): void
     remove(id: string): void
     refetch(id: string): Promise<void>
 } & {
-    [S in keyof Subset]: SubsetSearchFunction<Schema, Search, Foreign>
-} & SearchFunction<Schema, Search, Foreign>
+    [K in keyof Subset]: SubsetAccessEntry<Schema, Search, Foreign, IdField, Subset[K]>
+} & SearchFunction<Schema, Search, Foreign, IdField>
 
 export interface ShallowCollectionParams<Schema> {
     _type: Schema,
@@ -131,7 +149,7 @@ export interface ShallowCollectionParams<Schema> {
 
 export const shallowCollectionFor = <A>(collectionName: string) => {
     return { name: collectionName } as ShallowCollectionParams<A>
-} 
+}
 
 // ============= Builder =============
 export interface CollectionBuilder<
@@ -140,22 +158,46 @@ export interface CollectionBuilder<
     Search = {},
     // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     Foreign = {},
-    Subset = object
+    Subset = object,
+    IdField extends string = "id",
 > {
 
-    withIdField(field: keyof Schema): CollectionBuilder<Schema, Search, Foreign, Subset>
+    withIdField: <
+        const NewIdField extends keyof Schema & string
+    >(field: NewIdField) => CollectionBuilder<
+        Schema, 
+        Search, 
+        Foreign, 
+        Subset,
+        NewIdField
+    >
 
-    withSearch: <
-        const Name extends keyof Schema & string,
-        const Params extends object,
+    withCustomSearch: <
+        const Name extends string,
+        const Params extends object
     >(
         name: Name,
-        searchFn: (p: Params) => Promise<Schema | string | null>
+        searchFn: (p: Params) => Promise<Schema | string | null>,
+        toParams: (o: Schema) => Params | null
     ) => CollectionBuilder<
         Schema,
         Search & { [k in Name]: SearchEntry<Schema, Params> },
         Foreign,
-        Subset
+        Subset,
+        IdField
+    >
+
+    withSearch: <
+        const Name extends keyof Schema & string,
+    >(
+        name: Name,
+        searchFn: (field: Schema[Name]) => Promise<Schema | string | null>
+    ) => CollectionBuilder<
+        Schema,
+        Search & { [k in Name]: SearchEntry<Schema, { [k in Name]: Schema[Name] }> },
+        Foreign,
+        Subset,
+        IdField
     >
 
     withForeign: <
@@ -171,7 +213,8 @@ export interface CollectionBuilder<
         Schema,
         Search,
         Foreign & { [k in Name]: ForeignEntry<Schema, FSchema, FForeign, List, FSearch> },
-        Subset
+        Subset,
+        IdField
     >
 
     withShallowForeign: <
@@ -190,7 +233,8 @@ export interface CollectionBuilder<
         Search,
         // eslint-disable-next-line @typescript-eslint/no-empty-object-type
         Foreign & { [k in Name]: ForeignEntry<Schema, FSchema, {}, List, object> },
-        Subset
+        Subset,
+        IdField
     >
 
     withSubset: <
@@ -204,8 +248,9 @@ export interface CollectionBuilder<
         Schema,
         Search,
         Foreign,
-        Subset & { [k in Name]: SubsetEntry<Schema, FetchAll, FetchRange> }
+        Subset & { [k in Name]: SubsetEntry<Schema, FetchAll, FetchRange> },
+        IdField
     >
 
-    build(): Collection<Schema, Search, Foreign, Subset>
+    build(): Collection<Schema, Search, Foreign, Subset, IdField>
 }

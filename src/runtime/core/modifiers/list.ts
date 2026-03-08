@@ -1,54 +1,52 @@
 import { watchEffect, type ShallowRef } from "vue"
 import type { Modifier } from "."
 import { CacheError } from "../../types/errors"
-import type { CacheCollectionEntry } from "../../types/inner"
-import { get } from "../collection/get"
 import { logger } from "@nuxt/kit"
+import { stableStringify } from "../utils"
 
-export function createIdsModifier(
-    collectionCache: Record<string, CacheCollectionEntry<unknown>>,
-    foreignCollection: string,
+export function createItemListModifier<
+    ItemBefore, 
+    ItemAfter
+>(
     errorField: string,
-    triggerUpdate: (err?: CacheError) => void
-): Modifier {
+    triggerUpdate: (err?: CacheError) => void,
+    modify: (k: number) => Promise<ShallowRef<ItemAfter | CacheError>>,
+): Modifier<ItemBefore[]> {
 
     interface State {
-        watchers: Map<string, {
+        store: Map<string, {
             unwatch: () => void,
-            foreign: ShallowRef<unknown>
+            foreign: ShallowRef<ItemAfter | CacheError>
             indexInList: number
         }>,
-        list: unknown[],
+        list: (ItemBefore | ItemAfter)[],
         isInit: boolean
     }
 
     const state: State = {
-        watchers: new Map(),
+        store: new Map(),
         list: [], // only stock ref
         isInit: false
     }
 
-    const onListChange = async (ids: unknown[]): Promise<CacheError | undefined> => {
+    const onListChange = async (
+        itemList: (ItemBefore | ItemAfter)[]
+    ) => {
 
         // perform reconciliation diff
-        // modify ids and create watchers
-        const newWatchers: State["watchers"] = new Map()
-        state.list = ids
+        // modify list and create newStore
+        const newStore: State["store"] = new Map()
+        state.list = itemList
         state.isInit = false
 
         const promises: Promise<void>[] = []
 
-        for (let k = 0; k < ids.length; k++) {
-            const id = ids[k]
-
-            // check id type here, for performance
-            if (typeof id != "string") {
-                // throw will stop Promise.all
-                return new CacheError(errorField, "must be an array of strings")
-            }
+        for (let k = 0; k < itemList.length; k++) {
+            const item = itemList[k]!
+            const itemStr = stableStringify(item)
 
             // check if watcher can be keeped
-            const entry = state.watchers.get(id)
+            const entry = state.store.get(itemStr)
             if (entry) {
 
                 // update the index in which 
@@ -56,38 +54,45 @@ export function createIdsModifier(
                 entry.indexInList = k
 
                 // move entry from old to new state
-                newWatchers.set(id, entry)
-                state.watchers.delete(id)
+                newStore.set(itemStr, entry)
+                state.store.delete(itemStr)
 
                 // update the list
-                ids[k] = entry.foreign.value
+                const storedValue = entry.foreign.value
+                if (storedValue instanceof CacheError) {
+                    return triggerUpdate(storedValue.prefixFieldWith(errorField))
+                }
+
+                itemList[k] = storedValue
                 continue
             }
 
             promises.push((async () => {
 
                 // get foreign
-                const foreign = await get(collectionCache, foreignCollection, id, {})
+                const foreign = await modify(k)
                 if (foreign.value instanceof CacheError) {
-                    throw foreign.value.prefixFieldWith(errorField)
+                    return triggerUpdate(
+                        foreign.value.prefixFieldWith(errorField)
+                    )
                 }
 
-                const onItemValueChange = (newItemValue: unknown | CacheError) => {
+                const onItemValueChange = (newItemValue: ItemAfter | CacheError) => {
                     if (newItemValue instanceof CacheError) {
                         return triggerUpdate(
                             newItemValue.prefixFieldWith(errorField)
                         )
                     }
 
-                    const entry = state.watchers.get(id)
+                    const entry = state.store.get(itemStr)
                     const itemIndex = entry ? entry.indexInList : -1
 
                     if (itemIndex == -1) {
-                        logger.warn(`[mox-client-cache] modifying non existing item (${id})`)
+                        logger.warn(`[mox-client-cache] modifying non existing item (${item})`)
                     }
 
                     // modifiy actual list
-                    ids[itemIndex] = newItemValue
+                    itemList[itemIndex] = newItemValue
 
                     // only trigger update if liste 
                     // modifier is already initialized
@@ -95,26 +100,28 @@ export function createIdsModifier(
                 }
 
                 // register watcher (will be used in onItemValueChange)
-                const watcher = { foreign, indexInList: k, unwatch: () => { } }
-                newWatchers.set(id, watcher)
+                const entry = { foreign, indexInList: k, unwatch: () => { } }
+                newStore.set(itemStr, entry)
 
                 // launch watcher, and store unwatch function
                 const unwatch = watchEffect(() => onItemValueChange(foreign.value))
-                watcher.unwatch = unwatch
+                entry.unwatch = unwatch
 
             })())
         }
 
         try {
 
-            // wait for all ids to 
-            // be turned in objects 
+            // wait for all ItemBefore to 
+            // be turned in ItemAfter 
             await Promise.all(promises)
 
         } catch (err) {
-            return err instanceof CacheError
-                ? err
-                : new CacheError(errorField, err + "")
+            return triggerUpdate(
+                err instanceof CacheError
+                    ? err
+                    : new CacheError(errorField, err + "")
+            )
         }
 
         // now every item change  
@@ -122,11 +129,11 @@ export function createIdsModifier(
         state.isInit = true
 
         // unwatch all of old foreign's watchers 
-        for (const entry of state.watchers.values()) {
+        for (const entry of state.store.values()) {
             entry.unwatch()
         }
 
-        state.watchers = newWatchers
+        state.store = newStore
     }
 
     return onListChange

@@ -1,23 +1,46 @@
-import type { CacheSubsetEntry } from "../../types/inner";
-import type { SubsetBuilded } from "../../types/public";
+import type { SubsetAccessEntry } from "../../types";
+import type { CacheCollectionEntry, CacheSubsetEntry } from "../../types/inner";
 import { createAllFunction } from "./all";
 import { createIteratorFunction } from "./iterator";
 
 export function createSubset<
-    Subset, Schema, Foreign
+    Schema extends Record<string, unknown>, 
+    Search, 
+    Foreign, 
+    IdField extends string, 
+    SEntry
 >(
+    collectionCache: Record<string, CacheCollectionEntry<unknown>>,
+    collectionName: string,
+    collectionIdField: string,
     subsetEntry: CacheSubsetEntry<Schema>
-): SubsetBuilded<Subset, Schema, Foreign> {
+): SubsetAccessEntry<Schema, Search, Foreign, IdField, SEntry> {
 
-    const result = "fetchAll" in subsetEntry 
-        ? createAllFunction(subsetEntry.store, subsetEntry.fetchAll)
+    const result = subsetEntry.fetchAll 
+        ? createAllFunction(
+            collectionCache,
+            collectionName,
+            collectionIdField,
+            subsetEntry, 
+            subsetEntry.fetchAll
+        )
         : {}
 
-    if ("fetchRange" in subsetEntry) {
-        Object.assign(result, 
-            createIteratorFunction(subsetEntry.store, subsetEntry.fetchRange)
+    if (subsetEntry.fetchRange) {
+        Object.assign(
+            result, 
+            { 
+                createIterator: createIteratorFunction(
+                    collectionCache,
+                    collectionName,
+                    collectionIdField,
+                    subsetEntry, 
+                    subsetEntry.fetchRange
+                ) 
+            }
+            
         )
     }
 
-    return result
+    return result as SubsetAccessEntry<Schema, Search, Foreign, IdField, SEntry>
 }

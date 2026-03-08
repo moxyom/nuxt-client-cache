@@ -1,30 +1,31 @@
 import type { ShallowRef } from "vue"
 
-export interface CacheForeignIdFieldEntry<Schema, SearchParams> {
+export interface CacheForeignEntry<Schema, SearchParams> {
     collection: () => string,
-    searchBy?: string | { name: string, transform: (obj: Schema) => SearchParams }
-}
-
-export interface CacheForeignIdListFieldEntry<Schema, SearchParams> {
-    collection: () => string,
-    searchBy?: string | { name: string, transform: (obj: Schema, index?: number) => SearchParams }
+    isList: boolean,
+    searchBy?: { name: string, transform: (obj: Schema, index?: number) => SearchParams }
 }
 
 export interface CacheSubsetEntry<Schema> {
-    store: Map<string, ShallowRef<string[]>>
+    store: ShallowRef<string[]>
+    status: "empty" | "partial" | "all"
     isIncluded: (object: Schema) => boolean
     fetchRange?: (start: number, end: number) => Promise<string[] | null>
     fetchAll?: () => Promise<string[] | null> 
 }
-    
+
+interface CacheSearchEntry<Schema> {
+    method: (opt: unknown) => Promise<Schema | string | null>,
+    toParams: (o: Schema) => object | null
+    index: Map<string, string>
+}
 
 export interface CacheCollectionEntry<Schema> {
     fetch: (id: string) => Promise<Schema | null>,
     store: Map<string, ShallowRef<Schema | null>>
 
     idField: string,
-    searchMethodes: Record<string, (opt: unknown) => Promise<Schema | string | null>>
-    foreignIdFields: Record<string, CacheForeignIdFieldEntry<Schema, unknown>>
-    foreignIdListFields: Record<string, CacheForeignIdListFieldEntry<Schema, unknown>>
+    searchEntries: Record<string, CacheSearchEntry<Schema>>
+    foreignFields: Record<string, CacheForeignEntry<Schema, unknown>>
     subsets: Record<string, CacheSubsetEntry<Schema>>
 }

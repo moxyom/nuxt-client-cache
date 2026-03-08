@@ -1,15 +1,17 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 import { useNuxtApp } from "#app"
+import { shallowRef } from "vue"
 import type { CollectionBuilder, Collection, ForeignEntry, ShallowCollectionParams, SubsetEntry, SearchEntry } from "../types"
 import { BuilderError } from "../types/errors"
 import type { CacheCollectionEntry } from "../types/inner"
 import { createMoxCacheCollection } from "./collection"
 
 export function defineMoxCacheCollection<
-    Schema,
+    Schema extends Record<string, unknown>,
     Search = { id: string },
     Foreign = {},
-    Subset = object
+    Subset = object,
+    IdField extends string = "id",
 >(
     collectionName: string,
     fetch: (id: string) => Promise<Schema | null>
@@ -19,9 +21,8 @@ export function defineMoxCacheCollection<
         fetch,
         store: new Map(),
         idField: "id",
-        searchMethodes: {},
-        foreignIdFields: {},
-        foreignIdListFields: {},
+        searchEntries: {},
+        foreignFields: {},
         subsets: {}
     }
 
@@ -33,7 +34,8 @@ export function defineMoxCacheCollection<
         Schema, 
         Search, 
         Foreign, 
-        Subset
+        Subset,
+        IdField
     > = Object.assign(privateBuilder as never, {
 
         withIdField: (idField: keyof Schema & string) => {
@@ -43,19 +45,45 @@ export function defineMoxCacheCollection<
 
         withSearch: <
             const Name extends keyof Schema & string,
-            const Params extends object,
         >(
             name: Name,
-            searchFn: (p: Params) => Promise<Schema | string | null>
+            searchFn: (field: Schema[Name]) => Promise<Schema | string | null>
         ) => {
-            collectionEntry.searchMethodes[name] = searchFn as 
-                (p: unknown) => Promise<Schema | string | null>
+            collectionEntry.searchEntries[name] = {
+                index: new Map(),
+                method: (o: unknown) => searchFn((o as Schema)[name]),
+                toParams: (o: Schema) => { return { [name]: o[name] } }
+            }
+
+            return builder as CollectionBuilder<
+                Schema,
+                Search & { [k in Name]: SearchEntry<Schema, { [k in Name]: Schema[Name] }> },
+                Foreign,
+                Subset,
+                IdField
+            >
+        },
+
+        withCustomSearch: <
+            const Name extends string,
+            const Params extends object
+        >(
+            name: Name,
+            searchFn: (p: Params) => Promise<Schema | string | null>,
+            toParams: (o: Schema) => Params | null
+        ) => {
+            collectionEntry.searchEntries[name] = {
+                index: new Map(),
+                method: searchFn as (p: unknown) => Promise<Schema | string | null>,
+                toParams,
+            }
 
             return builder as CollectionBuilder<
                 Schema,
                 Search & { [k in Name]: SearchEntry<Schema, Params> },
                 Foreign,
-                Subset
+                Subset,
+                IdField
             >
         },
 
@@ -75,22 +103,44 @@ export function defineMoxCacheCollection<
                 )
             }
 
-            const foreignCollectionName = opt.collection._collectionName
-            const record = opt.list === true ?
-                collectionEntry.foreignIdListFields :
-                collectionEntry.foreignIdFields
+            let searchBy: { 
+                name: string, 
+                transform: (o: Schema, index: number | undefined) => unknown 
+            } | undefined = typeof opt.searchBy == "object" 
+                // ts don't like List extends true ? number: undefined
+                ? opt.searchBy as unknown as undefined 
+                : undefined
+            
+            if (typeof opt.searchBy == "string") {
+                const searchStr = opt.searchBy
 
-            record[name] = { 
+                searchBy = {
+                    name: searchStr,
+                    transform: (o: Schema, i: number | undefined) => {
+                        const field = (o as Record<string, unknown>)[searchStr] 
+                        return {
+                            searchBy: searchStr,
+                            [searchStr]: opt.list === true 
+                                ? (field as unknown[])[i!]
+                                : field
+                        }
+                    }
+                }
+            }
+
+            const foreignCollectionName = opt.collection._collectionName
+            collectionEntry.foreignFields[name] = { 
                 collection: () => foreignCollectionName,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                searchBy: (opt.searchBy as any)
+                isList: opt.list === true,
+                searchBy
             }
 
             return builder as CollectionBuilder<
                 Schema,
                 Search,
                 Foreign & { [k in Name]: ForeignEntry<Schema, FSchema, FForeign, List, FSearch> },
-                Subset
+                Subset,
+                IdField
             >
         },
 
@@ -106,20 +156,36 @@ export function defineMoxCacheCollection<
                 searchBy?: string | { name: string, transform: (o: Schema) => unknown }
             }
         ) => {
-            const record = opt.list === true ?
-                collectionEntry.foreignIdListFields :
-                collectionEntry.foreignIdFields
 
-            record[name] = { 
+            let searchBy: { 
+                name: string, 
+                transform: (o: Schema) => unknown 
+            } | undefined = typeof opt.searchBy == "object" 
+                ? opt.searchBy
+                : undefined
+            
+            if (typeof opt.searchBy == "string") {
+                const searchStr = opt.searchBy
+
+                searchBy = {
+                    name: searchStr,
+                    transform: (o: Schema) => (o as Record<string, unknown>)[searchStr] 
+                }
+            }
+ 
+
+            collectionEntry.foreignFields[name] = { 
                 collection: () => opt.collection.name,
-                searchBy: opt.searchBy
+                isList: opt.list === true,
+                searchBy
             }
 
             return builder as CollectionBuilder<
                 Schema,
                 Search,
                 Foreign & { [k in Name]: ForeignEntry<Schema, FSchema, FSchema, List, object> },
-                Subset
+                Subset,
+                IdField
             >
         },
 
@@ -133,7 +199,8 @@ export function defineMoxCacheCollection<
         ) => {
 
             collectionEntry.subsets[name] = {
-                store: new Map(),
+                store: shallowRef([]),
+                status: "empty",
                 ...opt
             }
 
@@ -141,17 +208,18 @@ export function defineMoxCacheCollection<
                 Schema,
                 Search,
                 Foreign,
-                Subset & { [k in Name]: SubsetEntry<Schema, FetchAll, FetchRange> }
+                Subset & { [k in Name]: SubsetEntry<Schema, FetchAll, FetchRange> },
+                IdField
             >
         },
 
-        build: (): Collection<Schema, Search, Foreign, Subset> => {
+        build: (): Collection<Schema, Search, Foreign, Subset, IdField> => {
             const { $moxClientCache } = useNuxtApp()
 
             // register collection
             $moxClientCache[collectionName] = collectionEntry
 
-            return createMoxCacheCollection<Schema, Search, Foreign, Subset>(
+            return createMoxCacheCollection<Schema, Search, Foreign, Subset, IdField>(
                 $moxClientCache, collectionEntry, collectionName
             )
         }
