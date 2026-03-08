@@ -1,9 +1,9 @@
-import { shallowRef, triggerRef, watchEffect, type ShallowRef } from "vue";
-import type { ReturnTypeFor, SearchParams } from "~/src/runtime/types";
-import { CacheError } from "~/src/runtime/types/errors";
-import type { CacheCollectionEntry, CacheSubsetEntry } from "~/src/runtime/types/inner";
-import { createItemListModifier } from "../../modifiers/list";
-import { get } from "../../collection/get";
+import { shallowRef, triggerRef, watchEffect, type ShallowRef } from "vue"
+import type { ReturnTypeFor, SearchParams } from "../../../types"
+import { CacheError } from "../../../types/errors"
+import type { CacheCollectionEntry, CacheSubsetEntry } from "../../../types/inner"
+import { createItemListModifier } from "../../modifiers/list"
+import { get } from "../../collection/get"
 
 export function createIteratorFunction<
     Schema extends Record<string, unknown>, 

@@ -1,24 +1,24 @@
 import { defineNuxtPlugin } from '#app'
-import type { CacheCollectionEntry } from '../types/store'
+import type { CacheCollectionEntry } from '../types/inner'
 
 export default defineNuxtPlugin(() => {
-  const moxClientCache: Record<string, CacheCollectionEntry<any>> = {}
-
-  return {
-    provide: {
-      moxClientCache: moxClientCache
+    const moxClientCache: Record<string, CacheCollectionEntry<unknown>> = {}
+    
+    return {
+        provide: {
+            moxClientCache
+        }
     }
-  }
 })
 
 declare module '#app' {
-  interface NuxtApp {
-    $moxClientCache: Record<string, CacheCollectionEntry<any>>
-  }
+    interface NuxtApp {
+        $moxClientCache: Record<string, CacheCollectionEntry<unknown>>
+    }
 }
 
 declare module 'vue' {
-  interface ComponentCustomProperties {
-    $moxClientCache: Record<string, CacheCollectionEntry<any>>
-  }
+    interface ComponentCustomProperties {
+        $moxClientCache: Record<string, CacheCollectionEntry<unknown>>
+    }
 }

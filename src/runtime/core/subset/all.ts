@@ -1,9 +1,9 @@
-import { shallowRef, triggerRef, watchEffect, type ShallowRef } from "vue";
-import type { ReturnTypeFor, SearchParams } from "../../types";
-import { CacheError } from "../../types/errors";
-import type { CacheCollectionEntry, CacheSubsetEntry } from "../../types/inner";
-import { createItemListModifier } from "../modifiers/list";
-import { get } from "../collection/get";
+import { shallowRef, triggerRef, watchEffect, type ShallowRef } from "vue"
+import type { ReturnTypeFor, SearchParams } from "../../types"
+import { CacheError } from "../../types/errors"
+import type { CacheCollectionEntry, CacheSubsetEntry } from "../../types/inner"
+import { createItemListModifier } from "../modifiers/list"
+import { get } from "../collection/get"
 
 export function createAllFunction<
     Schema extends Record<string, unknown>, 

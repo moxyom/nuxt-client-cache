@@ -90,15 +90,20 @@ export interface ForeignEntry<Schema, FSchema, FForeign, List, FSearch>{
 
 export type SearchEntry<Schema, SearchParams> = (params: SearchParams) => Promise<Schema | string | null>
 
-export interface SubsetEntry<Schema, FetchAll, FetchRange> {
-    isIncluded: (object: Schema) => boolean,
-    fetchAll: FetchAll extends true
-        ? undefined | (() => Promise<string[] | null>)
-        : never
-    fetchRange: FetchRange extends true
-        ? undefined | ((start: number, end: number) => Promise<string[] | null>)
-        : never
-}
+export type SubsetEntry<Schema, FetchAll, FetchRange> = {
+    isIncluded: (object: Schema) => boolean
+} & (
+    FetchAll extends true
+        ? { fetchAll: () => Promise<string[] | null> }
+        // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+        : {}
+) & (
+    FetchRange extends true 
+        ? {fetchRange: (start: number, end: number) => Promise<string[] | null> }
+        // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+        : {}
+)
+
 
 export type SubsetAccessEntry<
     Schema,

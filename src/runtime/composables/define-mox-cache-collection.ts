@@ -1,3 +1,1 @@
-import { defineMoxCacheCollection } from "../core"
-
-export default defineMoxCacheCollection
+export { defineMoxCacheCollection } from "../core"

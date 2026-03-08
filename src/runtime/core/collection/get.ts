@@ -1,5 +1,5 @@
 import { shallowRef, triggerRef, unref, watchEffect, type ShallowRef } from "vue";
-import { CacheError } from "@/src/runtime/types/errors";
+import { CacheError } from "../../types/errors";
 import type { Modifier } from "../modifiers";
 import type { ReturnTypeFor, SearchParams } from "~/src/runtime/types";
 import type { CacheCollectionEntry, CacheForeignEntry } from "~/src/runtime/types/inner";

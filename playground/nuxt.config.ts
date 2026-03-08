@@ -1,6 +1,6 @@
 export default defineNuxtConfig({
-    modules: ['my-module'],
+    modules: ['mox-client-cache'],
     devtools: { enabled: true },
     compatibilityDate: 'latest',
-    myModule: {},
+    moxClientCache: {}
 })

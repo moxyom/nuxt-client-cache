@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
-import { useNuxtApp } from "#app"
 import { shallowRef } from "vue"
 import type { CollectionBuilder, Collection, ForeignEntry, ShallowCollectionParams, SubsetEntry, SearchEntry } from "../types"
 import { BuilderError } from "../types/errors"
 import type { CacheCollectionEntry } from "../types/inner"
 import { createMoxCacheCollection } from "./collection"
 
-export function defineMoxCacheCollection<
+const createBuilder = <
     Schema extends Record<string, unknown>,
     Search = { id: string },
     Foreign = {},
@@ -15,7 +14,7 @@ export function defineMoxCacheCollection<
 >(
     collectionName: string,
     fetch: (id: string) => Promise<Schema | null>
-) {
+) => {
 
     const collectionEntry: CacheCollectionEntry<Schema> = {
         fetch,
@@ -214,16 +213,19 @@ export function defineMoxCacheCollection<
         },
 
         build: (): Collection<Schema, Search, Foreign, Subset, IdField> => {
-            const { $moxClientCache } = useNuxtApp()
-
-            // register collection
-            $moxClientCache[collectionName] = collectionEntry
 
             return createMoxCacheCollection<Schema, Search, Foreign, Subset, IdField>(
-                $moxClientCache, collectionEntry, collectionName
+                collectionEntry, collectionName
             )
         }
     })
 
     return builder
 }
+
+// redecrare type of defineMoxCacheCollection, because 
+// of type convenience for Schema into Record<string, unknown> 
+export const defineMoxCacheCollection = createBuilder as <Schema>(
+    name: string,
+    fetch: (id: string) => Promise<Schema | null>
+) => CollectionBuilder<Schema>

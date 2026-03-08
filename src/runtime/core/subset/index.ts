@@ -1,7 +1,7 @@
-import type { SubsetAccessEntry } from "../../types";
-import type { CacheCollectionEntry, CacheSubsetEntry } from "../../types/inner";
-import { createAllFunction } from "./all";
-import { createIteratorFunction } from "./iterator";
+import type { SubsetAccessEntry } from "../../types"
+import type { CacheCollectionEntry, CacheSubsetEntry } from "../../types/inner"
+import { createAllFunction } from "./all"
+import { createIteratorFunction } from "./iterator"
 
 export function createSubset<
     Schema extends Record<string, unknown>, 

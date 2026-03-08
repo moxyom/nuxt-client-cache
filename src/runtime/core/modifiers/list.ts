@@ -1,7 +1,6 @@
 import { watchEffect, type ShallowRef } from "vue"
 import type { Modifier } from "."
 import { CacheError } from "../../types/errors"
-import { logger } from "@nuxt/kit"
 import { stableStringify } from "../utils"
 
 export function createItemListModifier<
@@ -88,7 +87,7 @@ export function createItemListModifier<
                     const itemIndex = entry ? entry.indexInList : -1
 
                     if (itemIndex == -1) {
-                        logger.warn(`[mox-client-cache] modifying non existing item (${item})`)
+                        console.warn(`[mox-client-cache] modifying non existing item (${item})`)
                     }
 
                     // modifiy actual list
