@@ -4,6 +4,7 @@ import { CacheError } from "../../types/errors"
 import type { CacheSubsetEntry } from "../../types/inner"
 import { createItemListModifier } from "../modifiers/list"
 import { get } from "../collection/get"
+import { getCache } from "../utils"
 
 export function createAllFunction<
     Schema extends Record<string, unknown>, 
@@ -19,6 +20,8 @@ export function createAllFunction<
     return async <const Params extends SearchParams<Search, Foreign, IdField>>(
         params: Params
     ): Promise<ShallowRef<ReturnTypeFor<Schema, Foreign, Params>[] | CacheError>> => {
+
+        const collectionCache = getCache()
 
         if (subsetEntry.status == "empty") {
 
@@ -52,18 +55,31 @@ export function createAllFunction<
             "subset",
             triggerUpdate,
             (k: number) => get<Schema, Search, Foreign, IdField, Params>(
+                collectionCache,
                 collectionName,
-                Object.assign({ [collectionIdField]: subsetEntry.store.value[k] }, params)
+                Object.assign({ [collectionIdField]: subsetEntry.store.value[k] }, params),
             )
         )
+
+        // create a promise to wait for first 
+        // object modif to be finished
+        let resolveFirstRun: () => void
+        const firstRunPromise = new Promise((r) => {
+            resolveFirstRun = r as () => void
+        })
 
         const onListChange = async () => {
             const ids = structuredClone(subsetEntry.store.value)
             await listModifier(ids)
             resultRef.value = ids
+            resolveFirstRun()
         }
 
         watchEffect(onListChange)
+
+        // wait for the first run of 
+        // modif to be effectif
+        await firstRunPromise
 
         return resultRef as ShallowRef<ReturnTypeFor<Schema, Foreign, Params>[] | CacheError>
     }

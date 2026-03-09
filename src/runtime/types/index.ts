@@ -259,3 +259,11 @@ export interface CollectionBuilder<
 
     build(): Collection<Schema, Search, Foreign, Subset, IdField>
 }
+
+export function asShadow<T>(collection: any, name: string): Collection<T, unknown, unknown, unknown, string> {
+  return { name } as any
+}
+
+export const infer = <Schema>(_collection: any) => {
+    return _collection as Collection<Schema, unknown, unknown, unknown, string>
+}

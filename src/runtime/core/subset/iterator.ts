@@ -4,6 +4,7 @@ import { CacheError } from "../../types/errors"
 import type { CacheSubsetEntry } from "../../types/inner"
 import { createItemListModifier } from "../modifiers/list"
 import { get } from "../collection/get"
+import { getCache } from "../utils"
 
 export function createIteratorFunction<
     Schema extends Record<string, unknown>, 
@@ -44,6 +45,8 @@ export function createIteratorFunction<
         value: ShallowRef<ReturnTypeFor<Schema, Foreign, Params>[] | CacheError>,
         next?: () => Promise<undefined>
     }> => {
+
+        const collectionCache = getCache()
 
         if (subsetEntry.status == "empty") {
         
@@ -91,10 +94,18 @@ export function createIteratorFunction<
             "subset",
             triggerUpdate,
             (k: number) => get<Schema, Search, Foreign, IdField, Params>(
+                collectionCache,
                 collectionName,
                 Object.assign({ [collectionIdField]: subsetEntry.store.value[k] }, params)
             )
         )
+
+        // create a promise to wait for first 
+        // object modif to be finished
+        let resolveFirstRun: () => void
+        const firstRunPromise = new Promise((r) => {
+            resolveFirstRun = r as () => void
+        })
        
         const onListChange = async () => {
             const ids = structuredClone(subsetEntry.store.value)
@@ -103,9 +114,15 @@ export function createIteratorFunction<
             if (subsetEntry.status == "all") {
                 result.next = undefined
             }
+
+            resolveFirstRun()
         }
        
         watchEffect(onListChange)
+
+        // wait for the first run of 
+        // modif to be effectif
+        await firstRunPromise
        
         return result
 

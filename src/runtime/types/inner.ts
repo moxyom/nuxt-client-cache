@@ -14,7 +14,7 @@ export interface CacheSubsetEntry<Schema> {
     fetchAll?: () => Promise<string[] | null> 
 }
 
-interface CacheSearchEntry<Schema> {
+export interface CacheSearchEntry<Schema> {
     method: (opt: unknown) => Promise<Schema | string | null>,
     toParams: (o: Schema) => object | null
     index: Map<string, string>
