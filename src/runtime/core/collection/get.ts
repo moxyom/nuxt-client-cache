@@ -1,13 +1,13 @@
-import { shallowRef, triggerRef, unref, watchEffect, type ShallowRef } from "vue";
-import { CacheError } from "../../types/errors";
-import type { Modifier } from "../modifiers";
-import type { ReturnTypeFor, SearchParams } from "~/src/runtime/types";
-import type { CacheCollectionEntry, CacheForeignEntry } from "~/src/runtime/types/inner";
-import { idFor } from "../search";
-import { store } from "./store";
-import { createItemFieldModifier } from "../modifiers/field";
-import { createItemListFieldMofifier } from "../modifiers/list-field";
-import { getCache } from "../utils";
+import { shallowRef, triggerRef, unref, watchEffect, type ShallowRef } from "vue"
+import { CacheError } from "../../types/errors"
+import type { Modifier } from "../modifiers"
+import type { ReturnTypeFor, SearchParams } from "~/src/runtime/types"
+import type { CacheCollectionEntry, CacheForeignEntry } from "~/src/runtime/types/inner"
+import { idFor } from "../search"
+import { store } from "./store"
+import { createItemFieldModifier } from "../modifiers/field"
+import { createItemListFieldMofifier } from "../modifiers/list-field"
+import { getCache } from "../utils"
 
 export async function get<
     Schema extends Record<string, unknown>, 
@@ -16,11 +16,12 @@ export async function get<
     IdField extends string,
     const Params extends SearchParams<Search, Foreign, IdField>
 >(
+    cache: Record<string, CacheCollectionEntry<unknown>>,
     collectionName: string,
     params: Params
 ): Promise<ShallowRef<ReturnTypeFor<Schema, Foreign, Params> | CacheError>> {
 
-    const collectionCache = getCache()
+    const collectionCache = cache ?? getCache()
 
     // get collection
     const collectionEntry = collectionCache[collectionName] as CacheCollectionEntry<Schema> | undefined
@@ -46,7 +47,7 @@ export async function get<
     let objectRef = stored ? stored : shallowRef(null)
 
     // try get the object from the store
-    if (!objectRef) {
+    if (!objectRef.value) {
 
         // fetch the object
         const fetchedObject: Schema | null = await collectionEntry.fetch(id)
@@ -104,32 +105,53 @@ export async function get<
             ? createItemListFieldMofifier
             : createItemFieldModifier
 
+        const foreignIdField = cache[entry.collection()]?.idField
+        if (!foreignIdField) {
+            throw new Error(
+                "No collection found for " + entry.collection()
+            )
+        }
+
         modifiers.push(
             // eslint-disable-next-line @typescript-eslint/no-empty-object-type
             createModifierFn<Schema, string, Record<string, unknown>, string, unknown, {}, {}>(
+                collectionCache,
                 collectionName,
                 fieldName,
                 entry.collection(),
                 triggerUpdate,
-                createTransformFor(entry, baseParams, fieldName)
+                createTransformFor(entry, baseParams, fieldName, foreignIdField),
             )
         )
     }
+
+    // create a promise to wait for first 
+    // object modif to be finished
+    let resolveFirstRun: () => void
+    const firstRunPromise = new Promise((r) => {
+        resolveFirstRun = r as () => void
+    })
 
     const onObjectChange = async () => {
         const object = structuredClone(objectRef.value)
         if (!object) {
             resultRef.value = new CacheError(collectionName, "object has been set to null")
+            resolveFirstRun()
             return
         }
 
         await Promise.all(modifiers.map((modif) => modif(object)))
-
         resultRef.value = object
+
+        resolveFirstRun()
         return
     }
 
     watchEffect(onObjectChange)
+
+    // wait for the first run of 
+    // modif to be effectif
+    await firstRunPromise
 
     // cast because the actual object has been modified
     return resultRef as ShallowRef<ReturnTypeFor<Schema, Foreign, Params> | CacheError>
@@ -186,17 +208,21 @@ const withify = (s: string) => `with${s[0]?.toUpperCase() + s.slice(1)}`
 const createTransformFor = <Schema extends Record<string, unknown>>(
     entry: CacheForeignEntry<Schema, unknown>,
     baseParams: object,
-    fieldName: string
+    fieldName: string,
+    foreignIdField: string,
 ) => {
-    return (o: Schema) => {
+    return (o: Schema, index?: number) => {
+
         // create a params for the get function
         return Object.assign(
             // deep foreign
             structuredClone(baseParams),
             // search by id or by custom search
             entry.searchBy == undefined
-                ? { [entry.collection()]: o[fieldName] }
-                : entry.searchBy.transform(o)
+            ? index == undefined
+                ? { [foreignIdField]: o[fieldName] }
+                : { [foreignIdField]: (o[fieldName] as unknown[])[index] }
+            : entry.searchBy.transform(o)
         )
     }
 }

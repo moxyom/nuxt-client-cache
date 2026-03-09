@@ -1,6 +1,6 @@
 import { findMajorUsers, findUserById, findUserBySlug, findUsersWithPosts, type User } from "~/shared/user-factory";
 
-export const userCollection = defineMoxCacheCollection<User>("post", findUserById)
+export const userCollection = defineMoxCacheCollection<User>("user", findUserById)
     .withForeign("posts", { collection: postCollection, list: true })
     .withCustomSearch("slug", findUserBySlug, (o) => { return { slug: o.slug } })
     .withSubset("major", { isIncluded: (u) => u.age >= 18, fetchAll: findMajorUsers })

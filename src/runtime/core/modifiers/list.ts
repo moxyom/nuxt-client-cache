@@ -70,6 +70,7 @@ export function createItemListModifier<
 
                 // get foreign
                 const foreign = await modify(k)
+
                 if (foreign.value instanceof CacheError) {
                     return triggerUpdate(
                         foreign.value.prefixFieldWith(errorField)
@@ -84,7 +85,10 @@ export function createItemListModifier<
                     }
 
                     const entry = state.store.get(itemStr)
-                    const itemIndex = entry ? entry.indexInList : -1
+                    
+                    // if no entry in store, it means entry is being  
+                    // created so the index is k, the first index
+                    const itemIndex = entry ? entry.indexInList : k
 
                     if (itemIndex == -1) {
                         console.warn(`[mox-client-cache] modifying non existing item (${item})`)

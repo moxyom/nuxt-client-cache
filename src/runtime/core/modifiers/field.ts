@@ -4,6 +4,7 @@ import { CacheError } from "../../types/errors"
 import { get } from "../collection/get"
 import type { ReturnTypeFor, SearchParams } from "../../types"
 import { stableStringify } from "../utils"
+import type { CacheCollectionEntry } from "../../types/inner"
 
 export function createItemFieldModifier<
     Schema extends Record<string, unknown>,
@@ -14,6 +15,7 @@ export function createItemFieldModifier<
     FForeign,
     FParams extends SearchParams<FSearch, FForeign, FIdField>
 >(
+    collectionCache: Record<string, CacheCollectionEntry<unknown>>,
     currentCollection: string,
     fieldName: Field,
     foreignCollection: string,
@@ -78,8 +80,9 @@ export function createItemFieldModifier<
 
         // get foreign field
         const foreign = await get<FSchema, FSearch, FForeign, FIdField, FParams>(
+            collectionCache,
             foreignCollection, 
-            toParams(object)
+            toParams(object),
         )
 
         if (foreign.value instanceof CacheError) {

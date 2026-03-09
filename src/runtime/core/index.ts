@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 import { shallowRef } from "vue"
 import type { CollectionBuilder, Collection, ForeignEntry, ShallowCollectionParams, SubsetEntry, SearchEntry } from "../types"
-import { BuilderError } from "../types/errors"
 import type { CacheCollectionEntry } from "../types/inner"
 import { createMoxCacheCollection } from "./collection"
 
@@ -25,17 +24,13 @@ const createBuilder = <
         subsets: {}
     }
 
-    const privateBuilder = {
-        _collectionName: collectionName
-    }
-
     const builder: CollectionBuilder<
         Schema, 
         Search, 
         Foreign, 
         Subset,
         IdField
-    > = Object.assign(privateBuilder as never, {
+    > = {
 
         withIdField: (idField: keyof Schema & string) => {
             collectionEntry.idField = idField
@@ -96,11 +91,11 @@ const createBuilder = <
             name: Name,
             opt: ForeignEntry<Schema, FSchema, FForeign, List, FSearch>
         ) => {
-            if (!("_collectionName" in opt.collection) || typeof opt.collection._collectionName != "string") {
-                throw new BuilderError(
-                    "object passed is no valid collection, please use the intended builder"
-                )
-            }
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const fCollection = (opt.collection as any).store == undefined
+                ? (opt.collection as () => Collection<FSchema, object, FForeign, object, string>)
+                : () => opt.collection as Collection<FSchema, object, FForeign, object, string>
 
             let searchBy: { 
                 name: string, 
@@ -127,9 +122,9 @@ const createBuilder = <
                 }
             }
 
-            const foreignCollectionName = opt.collection._collectionName
             collectionEntry.foreignFields[name] = { 
-                collection: () => foreignCollectionName,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                collection: () => (fCollection() as any)._collectionName,
                 isList: opt.list === true,
                 searchBy
             }
@@ -213,12 +208,11 @@ const createBuilder = <
         },
 
         build: (): Collection<Schema, Search, Foreign, Subset, IdField> => {
-
             return createMoxCacheCollection<Schema, Search, Foreign, Subset, IdField>(
                 collectionEntry, collectionName
             )
         }
-    })
+    }
 
     return builder
 }
