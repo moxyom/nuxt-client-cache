@@ -5,12 +5,11 @@ import { refetch } from "./refetch"
 import { createSubset } from "../subset"
 import type { Collection, SearchParams } from "../../types"
 import type { CacheCollectionEntry } from "../../types/inner"
-import { useNuxtApp } from "#app"
 
-// buffer, add collections in this list, so that 
+// buffer, add collections in this object, so that 
 // when contexte of nuxtApp is set, all collections 
 // can be pushed and visible across all the application 
-const pendingCollections: Record<string, CacheCollectionEntry<unknown>> = {}
+export const pendingCollections: Record<string, CacheCollectionEntry<unknown>> = {}
 
 export const createMoxCacheCollection = <
     Schema extends Record<string, unknown>, 
@@ -23,11 +22,15 @@ export const createMoxCacheCollection = <
     collectionName: string,
 ): Collection<Schema, Search, Foreign, Subset, IdField> => {
 
+    // register collection inside of the pending  
+    // collection so that it will be inserted inside   
+    // of nuxt app when nuxt app is available 
+    pendingCollections[collectionName] = collectionEntry as CacheCollectionEntry<unknown>
+
     const fn = async <const Params extends SearchParams<Search, Foreign, IdField>>(
         params: Params
     ) => {
         return get<Schema, Search, Foreign, IdField, Params>(
-            useNuxtApp().$moxClientCache, 
             collectionName, 
             params
         )
@@ -42,7 +45,6 @@ export const createMoxCacheCollection = <
     for (const [subsetName, entry] of Object.entries(collectionEntry.subsets)) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (fn as any)[subsetName] = createSubset(
-            useNuxtApp().$moxClientCache,
             collectionName,
             collectionEntry.idField,
             entry

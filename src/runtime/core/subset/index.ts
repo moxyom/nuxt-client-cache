@@ -1,5 +1,5 @@
 import type { SubsetAccessEntry } from "../../types"
-import type { CacheCollectionEntry, CacheSubsetEntry } from "../../types/inner"
+import type { CacheSubsetEntry } from "../../types/inner"
 import { createAllFunction } from "./all"
 import { createIteratorFunction } from "./iterator"
 
@@ -10,7 +10,6 @@ export function createSubset<
     IdField extends string, 
     SEntry
 >(
-    collectionCache: Record<string, CacheCollectionEntry<unknown>>,
     collectionName: string,
     collectionIdField: string,
     subsetEntry: CacheSubsetEntry<Schema>
@@ -18,7 +17,6 @@ export function createSubset<
 
     const result = subsetEntry.fetchAll 
         ? createAllFunction(
-            collectionCache,
             collectionName,
             collectionIdField,
             subsetEntry, 
@@ -31,7 +29,6 @@ export function createSubset<
             result, 
             { 
                 createIterator: createIteratorFunction(
-                    collectionCache,
                     collectionName,
                     collectionIdField,
                     subsetEntry, 

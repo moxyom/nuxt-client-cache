@@ -7,6 +7,7 @@ import { idFor } from "../search";
 import { store } from "./store";
 import { createItemFieldModifier } from "../modifiers/field";
 import { createItemListFieldMofifier } from "../modifiers/list-field";
+import { getCache } from "../utils";
 
 export async function get<
     Schema extends Record<string, unknown>, 
@@ -15,10 +16,11 @@ export async function get<
     IdField extends string,
     const Params extends SearchParams<Search, Foreign, IdField>
 >(
-    collectionCache: Record<string, CacheCollectionEntry<unknown>>,
     collectionName: string,
     params: Params
 ): Promise<ShallowRef<ReturnTypeFor<Schema, Foreign, Params> | CacheError>> {
+
+    const collectionCache = getCache()
 
     // get collection
     const collectionEntry = collectionCache[collectionName] as CacheCollectionEntry<Schema> | undefined
@@ -105,7 +107,6 @@ export async function get<
         modifiers.push(
             // eslint-disable-next-line @typescript-eslint/no-empty-object-type
             createModifierFn<Schema, string, Record<string, unknown>, string, unknown, {}, {}>(
-                collectionCache,
                 collectionName,
                 fieldName,
                 entry.collection(),
