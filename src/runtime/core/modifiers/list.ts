@@ -94,12 +94,8 @@ export function createItemListModifier<
                         console.warn(`[mox-client-cache] modifying non existing item (${item})`)
                     }
 
-                    console.log("modifying actual list with ", newItemValue, "at", itemIndex)
-
                     // modifiy actual list
                     itemList[itemIndex] = newItemValue
-
-                    console.log("after : ", itemList)
 
                     // only trigger update if liste 
                     // modifier is already initialized

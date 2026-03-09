@@ -7,13 +7,13 @@
 </template>
 
 <script setup>
-// const user = await userCollection({
-//     searchBy: "slug",
-//     slug: "alex-dev",
-//     withPosts: {
-//         withWriter: true
-//     }
-// })
+const user = await userCollection({
+    searchBy: "slug",
+    slug: "alex-dev",
+    withPosts: {
+        withWriter: true
+    }
+})
 
 const comment = await commentCollection({
     id: "c1",
