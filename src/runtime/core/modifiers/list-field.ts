@@ -1,7 +1,6 @@
 import type { Modifier } from ".";
 import type { SearchParams } from "../../types";
 import { CacheError } from "../../types/errors";
-import type { CacheCollectionEntry } from "../../types/inner";
 import { get } from "../collection/get";
 import { createItemListModifier } from "./list";
 
@@ -14,7 +13,6 @@ export function createItemListFieldMofifier<
     FForeign,
     FParams extends SearchParams<FSearch, FForeign, FIdField>
 >(
-    collectionCache: Record<string, CacheCollectionEntry<unknown>>,
     currentCollection: string,
     fieldName: Field,
     foreignCollection: string,
@@ -27,7 +25,6 @@ export function createItemListFieldMofifier<
         `${currentCollection}.${fieldName}`,
         triggerUpdate,
         (k: number) => get<FSchema, FSearch, FForeign, FIdField, FParams>(
-            collectionCache,
             foreignCollection,
             toParams(currentObject, k)
         )        

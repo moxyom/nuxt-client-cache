@@ -1,9 +1,9 @@
 import { shallowRef, triggerRef, watchEffect, type ShallowRef } from "vue"
-import type { ReturnTypeFor, SearchParams } from "../../../types"
-import { CacheError } from "../../../types/errors"
-import type { CacheCollectionEntry, CacheSubsetEntry } from "../../../types/inner"
-import { createItemListModifier } from "../../modifiers/list"
-import { get } from "../../collection/get"
+import type { ReturnTypeFor, SearchParams } from "../../types"
+import { CacheError } from "../../types/errors"
+import type { CacheSubsetEntry } from "../../types/inner"
+import { createItemListModifier } from "../modifiers/list"
+import { get } from "../collection/get"
 
 export function createIteratorFunction<
     Schema extends Record<string, unknown>, 
@@ -11,7 +11,6 @@ export function createIteratorFunction<
     Foreign, 
     IdField extends string
 >(
-    collectionCache: Record<string, CacheCollectionEntry<unknown>>,
     collectionName: string,
     collectionIdField: string,
     subsetEntry: CacheSubsetEntry<Schema>,
@@ -92,7 +91,6 @@ export function createIteratorFunction<
             "subset",
             triggerUpdate,
             (k: number) => get<Schema, Search, Foreign, IdField, Params>(
-                collectionCache,
                 collectionName,
                 Object.assign({ [collectionIdField]: subsetEntry.store.value[k] }, params)
             )

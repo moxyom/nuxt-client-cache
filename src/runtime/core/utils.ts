@@ -1,3 +1,5 @@
+import { useNuxtApp } from "#app"
+
 /**
  * stringify with keys sorted, to compare serialization
  * @param obj the object to serialize
@@ -19,4 +21,15 @@ export function stableStringify(obj: unknown): string {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map(k => `${JSON.stringify(k)}:${stableStringify((obj as any)[k])}`)
         .join(",")}}`
+}
+
+/**
+ * get the cache object within the nuxt contexte 
+ * if called outside of this contexte, this
+ * function will throw
+ * @returns mox client cache object
+ * @throws Error 
+ */
+export const getCache = () => {
+    return useNuxtApp().$moxClientCache
 }

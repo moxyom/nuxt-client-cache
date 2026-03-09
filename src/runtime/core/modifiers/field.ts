@@ -1,7 +1,6 @@
 import { watchEffect, type ShallowRef } from "vue"
 import type { Modifier } from "."
 import { CacheError } from "../../types/errors"
-import type { CacheCollectionEntry } from "../../types/inner"
 import { get } from "../collection/get"
 import type { ReturnTypeFor, SearchParams } from "../../types"
 import { stableStringify } from "../utils"
@@ -15,7 +14,6 @@ export function createItemFieldModifier<
     FForeign,
     FParams extends SearchParams<FSearch, FForeign, FIdField>
 >(
-    collectionCache: Record<string, CacheCollectionEntry<unknown>>,
     currentCollection: string,
     fieldName: Field,
     foreignCollection: string,
@@ -80,7 +78,6 @@ export function createItemFieldModifier<
 
         // get foreign field
         const foreign = await get<FSchema, FSearch, FForeign, FIdField, FParams>(
-            collectionCache, 
             foreignCollection, 
             toParams(object)
         )
