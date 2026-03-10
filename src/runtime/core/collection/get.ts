@@ -2,12 +2,11 @@ import { shallowRef, triggerRef, unref, watchEffect, type ShallowRef } from "vue
 import { CacheError } from "../../types/errors"
 import type { Modifier } from "../modifiers"
 import type { ReturnTypeFor, SearchParams } from "~/src/runtime/types"
-import type { CacheCollectionEntry, CacheForeignEntry } from "~/src/runtime/types/inner"
 import { idFor } from "../search"
 import { store } from "./store"
 import { createItemFieldModifier } from "../modifiers/field"
 import { createItemListFieldMofifier } from "../modifiers/list-field"
-import { getCache } from "../utils"
+import type { CacheCollectionStore, CacheForeignStore } from "../../types/inner"
 
 export async function get<
     Schema extends Record<string, unknown>, 
@@ -16,25 +15,22 @@ export async function get<
     IdField extends string,
     const Params extends SearchParams<Search, Foreign, IdField>
 >(
-    cache: Record<string, CacheCollectionEntry<unknown>>,
+    cache: Record<string, CacheCollectionStore<unknown>>,
     collectionName: string,
     params: Params
 ): Promise<ShallowRef<ReturnTypeFor<Schema, Foreign, Params> | CacheError>> {
 
-    const collectionCache = cache ?? getCache()
-
-    // get collection
-    const collectionEntry = collectionCache[collectionName] as CacheCollectionEntry<Schema> | undefined
-    if (!collectionEntry) {
-        return shallowRef(new CacheError(
-            collectionName,
-            "No collection found for " + collectionName
-        ))
+    // don't try to get collection cache 
+    // with getCache function, like in deep  
+    // async function contexte can be lost
+    const collectionStore = cache[collectionName] as CacheCollectionStore<Schema> | undefined
+    if (!collectionStore) {
+        throw new Error("No mox cache collection named " + collectionName)
     }
-
+    
     // parse search by if present
     const id = await getIdFrom<Schema, Search, Foreign, IdField, Params>(
-        collectionEntry,
+        collectionStore,
         params
     )
 
@@ -43,14 +39,14 @@ export async function get<
         return shallowRef(id)
     }
 
-    const stored = collectionEntry.store.get(id)
+    const stored = collectionStore.index.get(id)
     let objectRef = stored ? stored : shallowRef(null)
 
     // try get the object from the store
     if (!objectRef.value) {
 
         // fetch the object
-        const fetchedObject: Schema | null = await collectionEntry.fetch(id)
+        const fetchedObject: Schema | null = await collectionStore.fetch(id)
         if (!fetchedObject) {
             return shallowRef(new CacheError(
                 collectionName,
@@ -58,9 +54,9 @@ export async function get<
             ))
         }
 
-        // store fetched resource,
-        // validation is made in store
-        const error = store(collectionEntry, fetchedObject)
+        // store fetched resource, validation
+        // is made in store function
+        const error = store(collectionStore, fetchedObject)
         if (error) {
             return shallowRef(error)
         }
@@ -89,7 +85,7 @@ export async function get<
     const modifiers: Modifier<Schema>[] = []
 
     // create foreign modifiers
-    for (const [fieldName, entry] of Object.entries(collectionEntry.foreignFields)) {
+    for (const [fieldName, foreign] of Object.entries(collectionStore.foreigns)) {
         const paramsName = withify(fieldName)
         
         const foreignParams = (params as Record<string, unknown>)[paramsName]
@@ -101,26 +97,26 @@ export async function get<
             ? foreignParams as object
             : {} 
 
-        const createModifierFn = entry.isList
+        const createModifierFn = foreign.isList
             ? createItemListFieldMofifier
             : createItemFieldModifier
 
-        const foreignIdField = cache[entry.collection()]?.idField
+        const foreignIdField = cache[foreign.collection()]?.idField
         if (!foreignIdField) {
             throw new Error(
-                "No collection found for " + entry.collection()
+                "No collection found for " + foreign.collection()
             )
         }
 
         modifiers.push(
             // eslint-disable-next-line @typescript-eslint/no-empty-object-type
             createModifierFn<Schema, string, Record<string, unknown>, string, unknown, {}, {}>(
-                collectionCache,
+                cache,
                 collectionName,
                 fieldName,
-                entry.collection(),
+                foreign.collection(),
                 triggerUpdate,
-                createTransformFor(entry, baseParams, fieldName, foreignIdField),
+                createTransformFor(foreign, baseParams, fieldName, foreignIdField),
             )
         )
     }
@@ -164,16 +160,16 @@ const getIdFrom = async<
     IdField extends string,
     const Params extends SearchParams<Search, Foreign, IdField>
 >(
-    collectionEntry: CacheCollectionEntry<Schema>,
+    collectionStore: CacheCollectionStore<Schema>,
     params: Params
 ) => {
     
     if ("searchBy" in params) {
         // retrive id from params's search 
         const idRess = await idFor<Schema>(
+            collectionStore,
             params.searchBy as string,
             params,
-            collectionEntry
         )
 
         if (idRess instanceof CacheError) {
@@ -183,7 +179,7 @@ const getIdFrom = async<
         return idRess
     }
 
-    const idFieldName = collectionEntry.idField
+    const idFieldName = collectionStore.idField
     if (!(idFieldName in params)) {
         throw new CacheError(
             "self",
@@ -206,7 +202,7 @@ const getIdFrom = async<
 const withify = (s: string) => `with${s[0]?.toUpperCase() + s.slice(1)}`
 
 const createTransformFor = <Schema extends Record<string, unknown>>(
-    entry: CacheForeignEntry<Schema, unknown>,
+    entry: CacheForeignStore<Schema, unknown>,
     baseParams: object,
     fieldName: string,
     foreignIdField: string,

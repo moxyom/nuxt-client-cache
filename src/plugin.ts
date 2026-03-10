@@ -1,33 +1,33 @@
 import { defineNuxtPlugin } from '#app'
 import { collectionDefinitions } from './runtime/core/collection'
-import { cloneCollection } from './runtime/core/collection/clone'
-import type { CacheCollectionEntry } from './runtime/types/inner'
+import { createCollectionStoreFrom } from './runtime/core/collection/clone'
+import type { CacheCollectionStore } from './runtime/types/inner'
 
 export default defineNuxtPlugin(() => {
-    const moxClientCache: Record<string, CacheCollectionEntry<unknown>> = {}
+    const useCache: Record<string, CacheCollectionStore<unknown>> = {}
     
     // once nuxt instance is available, 
     // clone collection definition into
     // a request specific scope (nuxt app)
-    for (const [name, collection] of Object.entries(collectionDefinitions)) {
-        moxClientCache[name] = cloneCollection(collection)
+    for (const [name, definition] of Object.entries(collectionDefinitions)) {
+        useCache[name] = createCollectionStoreFrom(definition)
     }
 
     return {
         provide: {
-            moxClientCache
+            moxClientCache: useCache
         }
     }
 })
 
 declare module '#app' {
     interface NuxtApp {
-        $moxClientCache: Record<string, CacheCollectionEntry<unknown>>
+        $moxClientCache: Record<string, CacheCollectionStore<unknown>>
     }
 }
 
 declare module 'vue' {
     interface ComponentCustomProperties {
-        $moxClientCache: Record<string, CacheCollectionEntry<unknown>>
+        $moxClientCache: Record<string, CacheCollectionStore<unknown>>
     }
 }

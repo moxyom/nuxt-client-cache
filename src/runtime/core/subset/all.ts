@@ -1,10 +1,9 @@
-import { shallowRef, triggerRef, watchEffect, type ShallowRef } from "vue"
+import { shallowRef, triggerRef, type ShallowRef } from "vue"
 import type { ReturnTypeFor, SearchParams } from "../../types"
 import { CacheError } from "../../types/errors"
-import type { CacheSubsetEntry } from "../../types/inner"
 import { createItemListModifier } from "../modifiers/list"
 import { get } from "../collection/get"
-import { getCache } from "../utils"
+import { getSubsetStore, watchEffectAndWaitForFirstRun } from "../utils"
 
 export function createAllFunction<
     Schema extends Record<string, unknown>, 
@@ -13,20 +12,28 @@ export function createAllFunction<
     IdField extends string
 >(
     collectionName: string,
-    collectionIdField: string,
-    subsetEntry: CacheSubsetEntry<Schema>,
-    fetchAll: () => Promise<string[] | null>
+    subsetName: string,
 ) {
     return async <const Params extends SearchParams<Search, Foreign, IdField>>(
         params: Params
     ): Promise<ShallowRef<ReturnTypeFor<Schema, Foreign, Params>[] | CacheError>> => {
 
-        const collectionCache = getCache()
+        // read store
+        const { cache, collectionStore, subset, runWithContext } = getSubsetStore(
+            collectionName, 
+            subsetName
+        )
 
-        if (subsetEntry.status == "empty") {
+        if (subset.fetchAll == undefined) {
+            throw new Error(
+                `Subset ${subsetName} for collection ${collectionName} does not provide a fetchAll function`
+            )
+        }
+
+        if (subset.status == "empty") {
 
             // fetch and init store 
-            const ids = await fetchAll()
+            const ids = await runWithContext(subset.fetchAll)
             if (ids == null) {
                 return shallowRef(new CacheError(
                     "", 
@@ -34,8 +41,8 @@ export function createAllFunction<
                 ))
             }
 
-            subsetEntry.store.value = ids
-            subsetEntry.status = "all"
+            subset.ids.value = ids
+            subset.status = "all"
         }
 
         // create ref that will be return
@@ -55,31 +62,17 @@ export function createAllFunction<
             "subset",
             triggerUpdate,
             (k: number) => get<Schema, Search, Foreign, IdField, Params>(
-                collectionCache,
+                cache,
                 collectionName,
-                Object.assign({ [collectionIdField]: subsetEntry.store.value[k] }, params),
+                Object.assign({ [collectionStore.idField]: subset.ids.value[k] }, params),
             )
         )
 
-        // create a promise to wait for first 
-        // object modif to be finished
-        let resolveFirstRun: () => void
-        const firstRunPromise = new Promise((r) => {
-            resolveFirstRun = r as () => void
-        })
-
-        const onListChange = async () => {
-            const ids = structuredClone(subsetEntry.store.value)
+        await watchEffectAndWaitForFirstRun(async () => {
+            const ids = structuredClone(subset.ids.value)
             await listModifier(ids)
             resultRef.value = ids
-            resolveFirstRun()
-        }
-
-        watchEffect(onListChange)
-
-        // wait for the first run of 
-        // modif to be effectif
-        await firstRunPromise
+        })
 
         return resultRef as ShallowRef<ReturnTypeFor<Schema, Foreign, Params>[] | CacheError>
     }

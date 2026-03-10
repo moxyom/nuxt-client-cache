@@ -1,13 +1,13 @@
-import type { CacheCollectionEntry } from "../../types/inner";
+import type { CacheCollectionStore } from "../../types/inner"
 
 export const remove = <Schema>(
-    collectionEntry: CacheCollectionEntry<Schema>,
+    collectionEntry: CacheCollectionStore<Schema>,
     id: string
 ) => {
-    const ref = collectionEntry.store.get(id)
+    const ref = collectionEntry.index.get(id)
     if (ref) {
         ref.value = null
     }
 
-    collectionEntry.store.delete(id)
+    collectionEntry.index.delete(id)
 }

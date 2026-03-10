@@ -1,10 +1,10 @@
-import { shallowRef, triggerRef, watchEffect, type ShallowRef } from "vue"
+import { shallowRef, triggerRef, type ShallowRef } from "vue"
 import type { ReturnTypeFor, SearchParams } from "../../types"
 import { CacheError } from "../../types/errors"
-import type { CacheSubsetEntry } from "../../types/inner"
 import { createItemListModifier } from "../modifiers/list"
 import { get } from "../collection/get"
-import { getCache } from "../utils"
+import { getSubsetStore, watchEffectAndWaitForFirstRun } from "../utils"
+import type { CacheSubsetStore } from "../../types/inner"
 
 export function createIteratorFunction<
     Schema extends Record<string, unknown>, 
@@ -13,16 +13,18 @@ export function createIteratorFunction<
     IdField extends string
 >(
     collectionName: string,
-    collectionIdField: string,
-    subsetEntry: CacheSubsetEntry<Schema>,
-    fetchRange: (start: number, end: number) => Promise<string[] | null>
+    subsetName: string,
 ) {
 
-    const fetchNext = async (step: number) => {
-        const storeLength = subsetEntry.store.value.length
+    const fetchNext = async (
+        subset: CacheSubsetStore<Schema>, 
+        step: number,
+        runWithContext: <T extends () => unknown>(fn: T) => ReturnType<T> | Promise<Awaited<ReturnType<T>>>
+    ) => {
+        const storeLength = subset.ids.value.length
 
         // fetch and init store 
-        const ids = await fetchRange(storeLength, storeLength + step)
+        const ids = await runWithContext(() => subset.fetchRange!(storeLength, storeLength + step))
         if (ids == null) {
             return new CacheError(
                 "", 
@@ -30,11 +32,11 @@ export function createIteratorFunction<
             )
         }
        
-        subsetEntry.status = ids.length < step 
+        subset.status = ids.length < step 
             ? "all"
             : "partial"
 
-        subsetEntry.store.value = ids
+        subset.ids.value.push(...ids)
     }
     
     return async <
@@ -43,26 +45,23 @@ export function createIteratorFunction<
         params: Params
     ): Promise<{ 
         value: ShallowRef<ReturnTypeFor<Schema, Foreign, Params>[] | CacheError>,
-        next?: () => Promise<undefined>
+        next?: () => Promise<void>
     }> => {
 
-        const collectionCache = getCache()
+        const { cache, collectionStore, subset, runWithContext } = getSubsetStore<Schema>(
+            collectionName,
+            subsetName
+        )
 
-        if (subsetEntry.status == "empty") {
-        
-            // fetch and init store 
-            const ids = await fetchRange(0, params.step)
-            if (ids == null) {
-                return { 
-                    value: shallowRef(new CacheError(
-                        "", 
-                        "fetching fetch all returned null"
-                    ))
-                }
-            }
-       
-            subsetEntry.store.value = ids
-            subsetEntry.status = "partial"
+        if (subset.fetchRange == undefined) {
+            throw new Error(
+                `Subset ${subsetName} for collection ${collectionName} does not provide a fetchRange function`
+            )
+        }
+
+        // init subset if empty
+        if (subset.status == "empty") {
+            await fetchNext(subset, params.step, runWithContext)
         }
        
         // create refs that will be return
@@ -70,16 +69,17 @@ export function createIteratorFunction<
             new CacheError("internal", "not yet initialize")
         )
 
+        // create a function that will be return
+        const next = async () => {
+            const error = await fetchNext(subset, params.step, runWithContext)
+            if (error) {
+                contentRef.value = error
+            }
+        }
+
         const result = { 
             value: contentRef as ShallowRef<ReturnTypeFor<Schema, Foreign, Params>[] | CacheError>,
-            next: (
-                async () => {
-                    const error = await fetchNext(params.step)
-                    if (error) {
-                        contentRef.value = error
-                    }
-                }
-            ) as (() => Promise<undefined>) | undefined
+            next: next as (() => Promise<void>) | undefined
         }
        
         const triggerUpdate = (err?: CacheError) => {
@@ -94,35 +94,22 @@ export function createIteratorFunction<
             "subset",
             triggerUpdate,
             (k: number) => get<Schema, Search, Foreign, IdField, Params>(
-                collectionCache,
+                cache,
                 collectionName,
-                Object.assign({ [collectionIdField]: subsetEntry.store.value[k] }, params)
+                Object.assign({ [collectionStore.idField]: subset.ids.value[k] }, params)
             )
         )
 
-        // create a promise to wait for first 
-        // object modif to be finished
-        let resolveFirstRun: () => void
-        const firstRunPromise = new Promise((r) => {
-            resolveFirstRun = r as () => void
-        })
-       
-        const onListChange = async () => {
-            const ids = structuredClone(subsetEntry.store.value)
+        // when subsetEntry.store changes,n execute listModifier
+        await watchEffectAndWaitForFirstRun(async () => {
+            const ids = structuredClone(subset.ids.value)
             await listModifier(ids)
+
             contentRef.value = ids
-            if (subsetEntry.status == "all") {
+            if (subset.status == "all") {
                 result.next = undefined
             }
-
-            resolveFirstRun()
-        }
-       
-        watchEffect(onListChange)
-
-        // wait for the first run of 
-        // modif to be effectif
-        await firstRunPromise
+        })
        
         return result
 

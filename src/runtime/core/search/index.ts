@@ -1,5 +1,5 @@
 import { CacheError } from "../../types/errors";
-import type { CacheCollectionEntry } from "../../types/inner";
+import type { CacheCollectionStore } from "../../types/inner";
 import { storeUnsafe } from "../collection/store";
 import { stableStringify } from "../utils";
 
@@ -9,17 +9,17 @@ import { stableStringify } from "../utils";
  * store it if an object is return to avoid fetching it again, 
  * and return the id
  * 
+ * @param collectionStore current collection store
  * @param searchMethod the name of the search methode used
  * @param params the params to include in the search function
- * @param collectionEntry current collection entry
  * @returns the id corresponding to the search params, or an error
  */
 export const idFor = async <Schema>(
+    collectionStore: CacheCollectionStore<Schema>,
     searchMethod: string,
     params: unknown,
-    collectionEntry: CacheCollectionEntry<Schema>
 ) => {
-    const searchEntry = collectionEntry.searchEntries[searchMethod]
+    const searchEntry = collectionStore.searches[searchMethod]
     if (!searchEntry) {
         throw new Error(`Unknown search method : ${searchMethod}`)
     }
@@ -70,7 +70,7 @@ export const idFor = async <Schema>(
 
     // make sure to use correct idField, 
     // and that it exist on ress
-    const idFieldName = collectionEntry.idField
+    const idFieldName = collectionStore.idField
     if (!(idFieldName in ress)) {
         return new CacheError(
             "self", 
@@ -91,7 +91,7 @@ export const idFor = async <Schema>(
 
     // store record into cache, not to fetch it again
     // unsafe because we already checked and cutomized errors 
-    storeUnsafe<Schema>(collectionEntry, ress, id)
+    storeUnsafe<Schema>(collectionStore, ress, id)
 
     return id
 }

@@ -1,16 +1,16 @@
 import { shallowRef } from "vue";
-import type { CacheCollectionEntry } from "../../types/inner";
+import type { CacheCollectionStore } from "../../types/inner";
 
 export const refetch = async <Schema>(
-    collectionEntry: CacheCollectionEntry<Schema>,
+    collectionEntry: CacheCollectionStore<Schema>,
     id: string
 ) => {
     const ress = await collectionEntry.fetch(id)
-    let ref = collectionEntry.store.get(id)
+    let ref = collectionEntry.index.get(id)
 
     if (ref == undefined) {
         ref = shallowRef(null)
-        collectionEntry.store.set(id, ref)
+        collectionEntry.index.set(id, ref)
     }
 
     ref.value = ress

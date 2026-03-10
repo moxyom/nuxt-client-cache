@@ -1,9 +1,9 @@
-import type { Modifier } from ".";
-import type { SearchParams } from "../../types";
-import { CacheError } from "../../types/errors";
-import type { CacheCollectionEntry } from "../../types/inner";
-import { get } from "../collection/get";
-import { createItemListModifier } from "./list";
+import type { Modifier } from "."
+import type { SearchParams } from "../../types"
+import { CacheError } from "../../types/errors"
+import type { CacheCollectionStore } from "../../types/inner"
+import { get } from "../collection/get"
+import { createItemListModifier } from "./list"
 
 export function createItemListFieldMofifier<
     Schema extends Record<string, unknown>,
@@ -14,8 +14,8 @@ export function createItemListFieldMofifier<
     FForeign,
     FParams extends SearchParams<FSearch, FForeign, FIdField>
 >(
-    collectionCache: Record<string, CacheCollectionEntry<unknown>>,
-    currentCollection: string,
+    cache: Record<string, CacheCollectionStore<unknown>>,
+    collectioName: string,
     fieldName: Field,
     foreignCollection: string,
     triggerUpdate: (err?: CacheError) => void,
@@ -24,10 +24,10 @@ export function createItemListFieldMofifier<
 
     let currentObject: Schema
     const listModifier = createItemListModifier(
-        `${currentCollection}.${fieldName}`,
+        `${collectioName}.${fieldName}`,
         triggerUpdate,
         (k: number) => get<FSchema, FSearch, FForeign, FIdField, FParams>(
-            collectionCache,
+            cache,
             foreignCollection,
             toParams(currentObject, k),
         )
@@ -39,7 +39,7 @@ export function createItemListFieldMofifier<
         const itemList = object[fieldName]
         if (!Array.isArray(itemList)) {
             return triggerUpdate(new CacheError(
-                `${currentCollection}.${fieldName}`,
+                `${collectioName}.${fieldName}`,
                 "must be an array"
             ))
         }
