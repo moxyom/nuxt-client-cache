@@ -1,53 +1,56 @@
 import { shallowRef, triggerRef } from "vue";
 import { CacheError } from "../../types/errors";
-import type { CacheCollectionEntry } from "../../types/inner";
+import type { CacheCollectionStore } from "../../types/inner";
 import { stableStringify } from "../utils";
 
 /**
  * store an objet in the cache, 
  * without checking his validity
- * 
- * @param collectionEntry current collection entry
+ * @param collectionStore current collection
  * @param object the object to store
  * @param id the object's id
  */
 export function storeUnsafe<Schema>(
-    collectionEntry: CacheCollectionEntry<Schema>,
+    collectionStore: CacheCollectionStore<Schema>,
     object: Schema,
     id: string
 ) {
 
     // fill search indexes
-    for (const [_, searchEntry] of Object.entries(collectionEntry.searchEntries)) {
-        const key = searchEntry.toParams(object)
+    for (const [_, search] of Object.entries(collectionStore.searches)) {
+        const key = search.toParams(object)
         if (key == null) { continue }
 
-        searchEntry.index.set(stableStringify(key), id)
+        search.index.set(stableStringify(key), id)
     }
 
     // fill subsets
-    for (const [_, subset] of Object.entries(collectionEntry.subsets)) {
+    for (const [_, subset] of Object.entries(collectionStore.subsets)) {
         if (!subset.isIncluded(object)) { continue }
 
-        if (subset.status != "empty" && !subset.store.value.includes(id)) {
-            subset.store.value.push(id)
+        if (subset.status != "empty" && !subset.ids.value.includes(id)) {
+            subset.ids.value.push(id)
 
             // only trigger ref if object is new 
-            triggerRef(subset.store)
+            triggerRef(subset.ids)
         }
     }
 
-    collectionEntry.store.set(id, shallowRef(object))
+    const entry = collectionStore.index.get(id)
+    if (entry) {
+        entry.value = object
+    }else {
+        collectionStore.index.set(id, shallowRef(object))
+    }
 }
 
 /**
  * store an objet in the cache
- * 
- * @param collectionEntry current collection entry
+ * @param collectionStore current collection store
  * @param object object to store
  */
 export function store<Schema>(
-    collectionEntry: CacheCollectionEntry<Schema>,
+    collectionStore: CacheCollectionStore<Schema>,
     object: unknown
 ) {
 
@@ -58,7 +61,7 @@ export function store<Schema>(
         )
     }
 
-    const idFieldName = collectionEntry.idField
+    const idFieldName = collectionStore.idField
     if (!(idFieldName in object)) {
         return new CacheError(
             `self`,
@@ -76,7 +79,7 @@ export function store<Schema>(
     }
 
     storeUnsafe(
-        collectionEntry,
+        collectionStore,
         object as Schema,
         id
     )

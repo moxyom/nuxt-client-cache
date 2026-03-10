@@ -1,73 +1,74 @@
 import { shallowRef } from "vue";
-import type { CacheCollectionEntry, CacheForeignEntry, CacheSearchEntry, CacheSubsetEntry } from "../../types/inner";
+import type { CacheCollectionDefinition, CacheCollectionStore, CacheForeignDefinition, CacheForeignStore, CacheSearchDefinition, CacheSearchStore, CacheSubsetDefinition, CacheSubsetStore } from "../../types/inner";
 
-const cloneSearchEntry = (
-    searchEntry: CacheSearchEntry<unknown>
-): CacheSearchEntry<unknown> => {
+const createSearchStoreFrom = (
+    definition: CacheSearchDefinition<unknown>
+):  CacheSearchStore<unknown> => {
     return {
         index: new Map(),
-        method: searchEntry.method,
-        toParams: searchEntry.toParams
+        method: definition.method,
+        toParams: definition.toParams
     }
 }
 
-const cloneSubsetEntry = (
-    subsetEntry: CacheSubsetEntry<unknown>
-): CacheSubsetEntry<unknown> => {
-    return {
-        store: shallowRef([]),
-        status: "empty",
+const createForeignStoreFrom = (
+    definition: CacheForeignDefinition<unknown, unknown>
+): CacheForeignStore<unknown, unknown> => {
 
-        isIncluded: subsetEntry.isIncluded,
-        fetchRange: subsetEntry.fetchRange,
-        fetchAll: subsetEntry.fetchAll,
-    }
-}
-
-const cloneForeignEntry = (
-    subsetEntry: CacheForeignEntry<unknown, unknown>
-): CacheForeignEntry<unknown, unknown> => {
-
-    const collectionName = subsetEntry.collection()
-    const searchBy = subsetEntry.searchBy == undefined
+    const collectionName = definition.collection()
+    const searchBy = definition.searchBy == undefined
             ? undefined
             : { 
-                name: subsetEntry.searchBy.name,
-                transform: subsetEntry.searchBy.transform
+                name: definition.searchBy.name,
+                transform: definition.searchBy.transform
             }
 
     return {
        collection: () => collectionName,
-       isList: subsetEntry.isList,
+       isList: definition.isList,
        searchBy
     }
 }
 
-export const cloneCollection = (
-    collectionEntry: CacheCollectionEntry<unknown>
-): CacheCollectionEntry<unknown> => {
+const createSubsetStoreFrom = (
+    definition: CacheSubsetDefinition<unknown>
+): CacheSubsetStore<unknown> => {
+    return {
+        ids: shallowRef([]),
+        status: "empty",
 
-    const searchEntries: Record<string, CacheSearchEntry<unknown>> = {}
-    for (const [name, entry] of Object.entries(collectionEntry.searchEntries)) {
-        searchEntries[name] = cloneSearchEntry(entry)
+        isIncluded: definition.isIncluded,
+        fetchRange: definition.fetchRange,
+        fetchAll: definition.fetchAll,
+    }
+}
+
+export const createCollectionStoreFrom = (
+    definition: CacheCollectionDefinition<unknown>
+): CacheCollectionStore<unknown> => {
+
+    const searches: Record<string, CacheSearchStore<unknown>> = {}
+    for (const [name, searchDefinition] of Object.entries(definition.searches)) {
+        searches[name] = createSearchStoreFrom(searchDefinition)
     }
 
-    const foreignFields: Record<string, CacheForeignEntry<unknown, unknown>> = {}
-    for (const [name, entry] of Object.entries(collectionEntry.foreignFields)) {
-        foreignFields[name] = cloneForeignEntry(entry)
+    const foreigns: Record<string, CacheForeignStore<unknown, unknown>> = {}
+    for (const [name, foreignDefinition] of Object.entries(definition.foreigns)) {
+        foreigns[name] = createForeignStoreFrom(foreignDefinition)
     }
 
-    const subsets: Record<string, CacheSubsetEntry<unknown>> = {}
-    for (const [name, entry] of Object.entries(collectionEntry.subsets)) {
-        subsets[name] = cloneSubsetEntry(entry)
+    const subsets: Record<string, CacheSubsetStore<unknown>> = {}
+    for (const [name, subsetDefinition] of Object.entries(definition.subsets)) {
+        subsets[name] = createSubsetStoreFrom(subsetDefinition)
     }
 
     return {
-        fetch: collectionEntry.fetch,
-        store: new Map(),
-        idField: collectionEntry.idField,
-        searchEntries,
-        foreignFields,
+        fetch: definition.fetch,
+        idField: definition.idField,
+        index: new Map(),
+
+        searches,
+        foreigns,
         subsets
     }
 }

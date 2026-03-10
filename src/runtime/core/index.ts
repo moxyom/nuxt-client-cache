@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
-import { shallowRef } from "vue"
 import type { CollectionBuilder, Collection, ForeignEntry, ShallowCollectionParams, SubsetEntry, SearchEntry } from "../types"
-import type { CacheCollectionEntry } from "../types/inner"
 import { createMoxCacheCollection } from "./collection"
+import type { CacheCollectionDefinition } from "../types/inner"
 
 const createBuilder = <
     Schema extends Record<string, unknown>,
@@ -15,12 +14,11 @@ const createBuilder = <
     fetch: (id: string) => Promise<Schema | null>
 ) => {
 
-    const collectionEntry: CacheCollectionEntry<Schema> = {
+    const collectionDefinition: CacheCollectionDefinition<Schema> = {
         fetch,
-        store: new Map(),
         idField: "id",
-        searchEntries: {},
-        foreignFields: {},
+        searches: {},
+        foreigns: {},
         subsets: {}
     }
 
@@ -33,7 +31,7 @@ const createBuilder = <
     > = {
 
         withIdField: (idField: keyof Schema & string) => {
-            collectionEntry.idField = idField
+            collectionDefinition.idField = idField
             return builder
         },
 
@@ -43,8 +41,7 @@ const createBuilder = <
             name: Name,
             searchFn: (field: Schema[Name]) => Promise<Schema | string | null>
         ) => {
-            collectionEntry.searchEntries[name] = {
-                index: new Map(),
+            collectionDefinition.searches[name] = {
                 method: (o: unknown) => searchFn((o as Schema)[name]),
                 toParams: (o: Schema) => { return { [name]: o[name] } }
             }
@@ -66,8 +63,7 @@ const createBuilder = <
             searchFn: (p: Params) => Promise<Schema | string | null>,
             toParams: (o: Schema) => Params | null
         ) => {
-            collectionEntry.searchEntries[name] = {
-                index: new Map(),
+            collectionDefinition.searches[name] = {
                 method: searchFn as (p: unknown) => Promise<Schema | string | null>,
                 toParams,
             }
@@ -122,7 +118,7 @@ const createBuilder = <
                 }
             }
 
-            collectionEntry.foreignFields[name] = { 
+            collectionDefinition.foreigns[name] = { 
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 collection: () => (fCollection() as any)._collectionName,
                 isList: opt.list === true,
@@ -168,7 +164,7 @@ const createBuilder = <
             }
  
 
-            collectionEntry.foreignFields[name] = { 
+            collectionDefinition.foreigns[name] = { 
                 collection: () => opt.collection.name,
                 isList: opt.list === true,
                 searchBy
@@ -192,11 +188,7 @@ const createBuilder = <
             opt: SubsetEntry<Schema, FetchAll, FetchRange>
         ) => {
 
-            collectionEntry.subsets[name] = {
-                store: shallowRef([]),
-                status: "empty",
-                ...opt
-            }
+            collectionDefinition.subsets[name] = opt
 
             return builder as CollectionBuilder<
                 Schema,
@@ -209,7 +201,7 @@ const createBuilder = <
 
         build: (): Collection<Schema, Search, Foreign, Subset, IdField> => {
             return createMoxCacheCollection<Schema, Search, Foreign, Subset, IdField>(
-                collectionEntry, collectionName
+                collectionDefinition, collectionName
             )
         }
     }

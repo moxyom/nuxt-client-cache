@@ -11,7 +11,7 @@ const user = await userCollection({
     searchBy: "slug",
     slug: "alex-dev",
     withPosts: {
-        withWriter: true
+        withComments: true
     }
 })
 
@@ -19,4 +19,13 @@ const comment = await commentCollection({
     id: "c1",
     withWriterSlug: true
 })
+
+setTimeout(() => {
+    userCollection.store({
+        "id": "u1",
+        "slug": "alex-dev",
+        "age": 3000,
+        "posts": ["p6"]
+    })
+}, 2000)
 </script>

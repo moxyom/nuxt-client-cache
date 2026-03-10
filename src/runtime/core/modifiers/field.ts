@@ -4,7 +4,7 @@ import { CacheError } from "../../types/errors"
 import { get } from "../collection/get"
 import type { ReturnTypeFor, SearchParams } from "../../types"
 import { stableStringify } from "../utils"
-import type { CacheCollectionEntry } from "../../types/inner"
+import type { CacheCollectionStore } from "../../types/inner"
 
 export function createItemFieldModifier<
     Schema extends Record<string, unknown>,
@@ -15,8 +15,8 @@ export function createItemFieldModifier<
     FForeign,
     FParams extends SearchParams<FSearch, FForeign, FIdField>
 >(
-    collectionCache: Record<string, CacheCollectionEntry<unknown>>,
-    currentCollection: string,
+    collectionCache: Record<string, CacheCollectionStore<unknown>>,
+    collectionName: string,
     fieldName: Field,
     foreignCollection: string,
     triggerUpdate: (err?: CacheError) => void,
@@ -66,7 +66,7 @@ export function createItemFieldModifier<
         ) => {
             if (newFieldValue instanceof CacheError) {
                 return triggerUpdate(
-                    newFieldValue.prefixFieldWith(`${currentCollection}.${fieldName}`)
+                    newFieldValue.prefixFieldWith(`${collectionName}.${fieldName}`)
                 )
             }
 
@@ -87,7 +87,7 @@ export function createItemFieldModifier<
 
         if (foreign.value instanceof CacheError) {
             return triggerUpdate(
-                foreign.value.prefixFieldWith(`${currentCollection}.${fieldName}`)
+                foreign.value.prefixFieldWith(`${collectionName}.${fieldName}`)
             )
         }
 
