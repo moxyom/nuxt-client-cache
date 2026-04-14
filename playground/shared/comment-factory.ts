@@ -29,7 +29,7 @@ const comments: Comment[] = [
 ]
 
 export const findCommentById = async (id: string) => {
-    console.log("finding user by id : " + id)
+    console.log("finding comment by id : " + id)
     for (let k = 0; k < comments.length; k ++) {
         const comment = comments[k]!
 

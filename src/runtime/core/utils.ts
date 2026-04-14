@@ -1,6 +1,6 @@
-import { useNuxtApp } from "#app"
 import { watchEffect } from "vue"
 import type { CacheCollectionStore, CacheSubsetStore } from "../types/inner"
+import getCacheCtx from "./cache-provider"
 
 /**
  * get the cache object within the nuxt contexte 
@@ -9,13 +9,7 @@ import type { CacheCollectionStore, CacheSubsetStore } from "../types/inner"
  * @returns mox client cache object
  * @throws Error 
  */
-export const getCache = () => {
-    const nuxtApp = useNuxtApp()
-    return { 
-        cache: nuxtApp.$moxClientCache,
-        runWithContext: nuxtApp.runWithContext
-    }
-}
+export const getCache = getCacheCtx
 
 /**
  * get the collection from the cache, throw if not exist
@@ -96,10 +90,7 @@ export const watchEffectAndWaitForFirstRun = async (
         resolveFirstRun = r as () => void
     })
 
-    watchEffect(async () => {
-        await callback()
-        resolveFirstRun()
-    })
+    watchEffect(() => callback().then(resolveFirstRun))
 
     // wait for the first run of 
     // action to be effectif

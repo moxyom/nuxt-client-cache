@@ -41,14 +41,14 @@ export const idFor = async <Schema>(
         ress = await searchEntry.method(params)
     }catch(err) {
         return new CacheError(
-            "self", 
+            "", 
             `error while searching by ${searchMethod} : ${err}`
         )
     }
 
     if (ress == null) {
         return new CacheError(
-            "self", 
+            "", 
             `searching by ${searchMethod} returned null`
         )
     }
@@ -62,7 +62,7 @@ export const idFor = async <Schema>(
 
     if (typeof ress != "object" || Array.isArray(ress)) {
         return new CacheError(
-            "self", 
+            "", 
             `searching by ${searchMethod} returned a`
             + ` non-record value (${ress})`
         )
@@ -73,7 +73,7 @@ export const idFor = async <Schema>(
     const idFieldName = collectionStore.idField
     if (!(idFieldName in ress)) {
         return new CacheError(
-            "self", 
+            "", 
             `searching by ${searchMethod} returned an object with no "`
             + `${idFieldName}" field (${ress})`
         )
@@ -82,7 +82,7 @@ export const idFor = async <Schema>(
     const id = (ress as Record<string, unknown>)[idFieldName]
     if (typeof id != "string") {
         return new CacheError(
-            "self", 
+            "", 
             `searching by "${searchMethod}" returned an object with `
             + `an invalid "${idFieldName}" type. Expected a string `
             + `but received: ${typeof id} (${id})`

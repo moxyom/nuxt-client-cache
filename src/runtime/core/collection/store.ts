@@ -1,4 +1,4 @@
-import { shallowRef, triggerRef } from "vue";
+import { shallowRef, triggerRef, type ShallowRef } from "vue";
 import { CacheError } from "../../types/errors";
 import type { CacheCollectionStore } from "../../types/inner";
 import { stableStringify } from "../utils";
@@ -14,7 +14,7 @@ export function storeUnsafe<Schema>(
     collectionStore: CacheCollectionStore<Schema>,
     object: Schema,
     id: string
-) {
+): ShallowRef<Schema | null> {
 
     // fill search indexes
     for (const [_, search] of Object.entries(collectionStore.searches)) {
@@ -36,12 +36,18 @@ export function storeUnsafe<Schema>(
         }
     }
 
+    // update if exist
     const entry = collectionStore.index.get(id)
     if (entry) {
         entry.value = object
-    }else {
-        collectionStore.index.set(id, shallowRef(object))
+        return entry
     }
+
+    // create if not exist
+    const ref = shallowRef(object)
+    collectionStore.index.set(id, ref)
+    return ref
+    
 }
 
 /**
@@ -52,7 +58,7 @@ export function storeUnsafe<Schema>(
 export function store<Schema>(
     collectionStore: CacheCollectionStore<Schema>,
     object: unknown
-) {
+): ShallowRef<Schema | null> | CacheError {
 
     if (object == null || typeof object != "object") {
         return new CacheError(
@@ -78,7 +84,7 @@ export function store<Schema>(
         )
     }
 
-    storeUnsafe(
+    return storeUnsafe(
         collectionStore,
         object as Schema,
         id

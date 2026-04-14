@@ -1,3 +1,9 @@
+import { defineMoxCacheCollection } from "~/src/runtime/core"
+import { shallowCollectionFor } from "~/src/runtime/types"
+import { commentCollection } from "./comments"
+import type { User } from "./users"
+import { vi } from "vitest"
+
 export interface Post {
     id: string
     writer: string
@@ -30,15 +36,16 @@ const posts: Post[] = [
     { id: "p20", writer: "u15", title: "Node.js Streams", tags: ["node", "backend"], img: { alt: "Water stream", filename: "node.jpg" }, comments: [] }
 ]
 
-export const findPostById = async (id: string) => {
-    console.log("finding post by id : " + id)
-    for (let k = 0; k < posts.length; k ++) {
-        const post = posts[k]!
+const findPostById = vi.fn(
+    async (id: string) => posts
+        .find((p) => p.id == id) ?? null
+)
 
-        if (post.id == id) {
-            return post
-        }
-    }
+export const postCollection = defineMoxCacheCollection<Post>("post", findPostById)
+    .withForeign("comments", { collection: () => commentCollection, list: true })
+    .withShallowForeign("writer", { collection: shallowCollectionFor<User>("user") })
+    .build()
 
-    return null 
+export const mocked = {
+    findPostById
 }

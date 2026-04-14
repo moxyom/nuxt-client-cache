@@ -1,4 +1,4 @@
-import { shallowRef, triggerRef, unref, watchEffect, type ShallowRef } from "vue"
+import { shallowRef, triggerRef, unref, type ShallowRef } from "vue"
 import { CacheError } from "../../types/errors"
 import type { Modifier } from "../modifiers"
 import type { ReturnTypeFor, SearchParams } from "~/src/runtime/types"
@@ -7,6 +7,7 @@ import { store } from "./store"
 import { createItemFieldModifier } from "../modifiers/field"
 import { createItemListFieldMofifier } from "../modifiers/list-field"
 import type { CacheCollectionStore, CacheForeignStore } from "../../types/inner"
+import { watchEffectAndWaitForFirstRun } from "../utils"
 
 export async function get<
     Schema extends Record<string, unknown>, 
@@ -46,22 +47,31 @@ export async function get<
     if (!objectRef.value) {
 
         // fetch the object
-        const fetchedObject: Schema | null = await collectionStore.fetch(id)
+        let fetchedObject: Schema | null
+        try {
+            fetchedObject = await collectionStore.fetch(id)
+        }catch(e: unknown) {
+            return shallowRef(new CacheError(
+                "",
+                `error while fetching resource : ${e}`
+            ))
+        }
+
         if (!fetchedObject) {
             return shallowRef(new CacheError(
-                collectionName,
-                "unable to fetch resource"
+                "",
+                "resource not found"
             ))
         }
 
         // store fetched resource, validation
         // is made in store function
-        const error = store(collectionStore, fetchedObject)
-        if (error) {
-            return shallowRef(error)
+        const newRef = store(collectionStore, unref(fetchedObject))
+        if (newRef instanceof CacheError) {
+            return shallowRef(newRef)
         }
 
-        objectRef = shallowRef(unref(fetchedObject))
+        objectRef = newRef
     }
 
     // create ref that will be return
@@ -121,33 +131,16 @@ export async function get<
         )
     }
 
-    // create a promise to wait for first 
-    // object modif to be finished
-    let resolveFirstRun: () => void
-    const firstRunPromise = new Promise((r) => {
-        resolveFirstRun = r as () => void
-    })
-
-    const onObjectChange = async () => {
+    await watchEffectAndWaitForFirstRun(async () => {
         const object = structuredClone(objectRef.value)
         if (!object) {
             resultRef.value = new CacheError(collectionName, "object has been set to null")
-            resolveFirstRun()
             return
         }
 
         await Promise.all(modifiers.map((modif) => modif(object)))
         resultRef.value = object
-
-        resolveFirstRun()
-        return
-    }
-
-    watchEffect(onObjectChange)
-
-    // wait for the first run of 
-    // modif to be effectif
-    await firstRunPromise
+    })
 
     // cast because the actual object has been modified
     return resultRef as ShallowRef<ReturnTypeFor<Schema, Foreign, Params> | CacheError>
@@ -182,7 +175,7 @@ const getIdFrom = async<
     const idFieldName = collectionStore.idField
     if (!(idFieldName in params)) {
         throw new CacheError(
-            "self",
+            "",
             `no ${idFieldName} field in params`
         )
     }
@@ -190,7 +183,7 @@ const getIdFrom = async<
     const id = (params as Record<string, unknown>)[idFieldName]
     if (typeof id != "string") { 
         throw new CacheError(
-            "self",
+            "",
             `${idFieldName} field in params must be a string (${id})`
         )
     }
