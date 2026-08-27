@@ -1,1 +1,0 @@
-export { defineMoxCacheCollection } from "../core"

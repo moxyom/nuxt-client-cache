@@ -1,71 +1,46 @@
-import { defineMoxCacheCollection } from "~/src/runtime/core"
+import { defineCollection } from "~/src/runtime/builder"
 import { postCollection } from "./posts"
 import { vi } from "vitest"
 
 export interface User {
-    id: string,
-    slug: string,
+    id: string
+    slug: string
     age: number
-    posts: string[]
 }
 
 const users: User[] = [
-    { id: "u1", slug: "alex-dev", age: 15, posts: ["p1", "p2"] },
-    { id: "u2", slug: "sophie-q", age: 24, posts: ["p3"] },
-    { id: "u3", slug: "marc-tech", age: 35, posts: ["p4", "p5"] },
-    { id: "u4", slug: "elisa-design", age: 31, posts: ["p6"] },
-    { id: "u5", slug: "jean-code", age: 42, posts: ["p7", "p8"] },
-    { id: "u6", slug: "lucie-sky", age: 17, posts: ["p9"] },
-    { id: "u7", slug: "tom-web", age: 27, posts: ["p10", "p11"] },
-    { id: "u8", slug: "nina-art", age: 23, posts: ["p12"] },
-    { id: "u9", slug: "victor-data", age: 38, posts: ["p13"] },
-    { id: "u10", slug: "claire-ux", age: 29, posts: ["p14", "p15"] },
-    { id: "u11", slug: "sam-cloud", age: 33, posts: ["p16"] },
-    { id: "u12", slug: "lea-java", age: 26, posts: ["p17"] },
-    { id: "u13", slug: "ben-react", age: 30, posts: ["p18"] },
-    { id: "u14", slug: "emma-vue", age: 16, posts: ["p19"] },
-    { id: "u15", slug: "hugo-node", age: 40, posts: ["p20"] },
-    { id: "u16", slug: "zoe-rust", age: 22, posts: [] },
-    { id: "u17", slug: "max-python", age: 36, posts: [] },
-    { id: "u18", slug: "ana-go", age: 31, posts: [] },
-    { id: "u19", slug: "paul-sql", age: 16, posts: [] },
-    { id: "u20", slug: "maya-css", age: 21, posts: [] }
+    { id: "usr_001", slug: "alice-martin", age: 28 },
+    { id: "usr_002", slug: "benjamin-lee", age: 34 },
+    { id: "usr_003", slug: "charlotte-smith", age: 25 },
+    { id: "usr_004", slug: "daniel-wilson", age: 41 },
+    { id: "usr_005", slug: "emma-johnson", age: 31 },
+    { id: "usr_006", slug: "felix-brown", age: 22 },
+    { id: "usr_007", slug: "grace-davis", age: 37 },
+    { id: "usr_008", slug: "henry-miller", age: 29 },
+    { id: "usr_009", slug: "isabella-moore", age: 26 },
+    { id: "usr_010", slug: "jack-taylor", age: 45 },
 ]
 
+const findUserById = vi.fn(async (query: { id: string }) => {
+    const user = users.find((u) => u.id == query.id)
+    return user ? { record: user } : null
+})
 
-const findUserById = vi.fn(
-    async (id: string) => users
-        .find((u) => u.id == id) ?? null
-)
+const findUserBySlug = vi.fn(async (query: { slug: string }) => {
+    const user = users.find((u) => u.slug == query.slug)
+    return user ? { record: user } : null
+})
 
-const findUserBySlug = vi.fn(
-    async (params: { slug: string }) => users
-        .find((u) => u.slug == params.slug) ?? null
-)
-
-const findMajorUsers = vi.fn(
-    async () => users
-        .filter((u) => u.age >= 18)
-        .map(u => u.id)
-)
-    
-const findUsersWithPosts = vi.fn(
-    async (start: number, end: number) => users
-        .filter((u) => u.posts.length > 0)
-        .slice(start, end)
-        .map(u => u.id)
-)
-
-export const userCollection = defineMoxCacheCollection<User>("user", findUserById)
-    .withForeign("posts", { collection: postCollection, list: true })
-    .withCustomSearch("slug", findUserBySlug, (o) => { return { slug: o.slug } })
-    .withSubset("major", { isIncluded: (u) => u.age >= 18, fetchAll: findMajorUsers })
-    .withSubset("withPosts", { isIncluded: (u) => u.posts.length > 0, fetchRange: findUsersWithPosts })
+export const userCollection = defineCollection<User>("user", findUserById)
+    .withSearch("slug", findUserBySlug, (u) => ({ slug: u.slug }))
+    .withVirtualField("posts", {
+        from: postCollection,
+        scope: "whereWriter",
+        with: (u) => ({ id: u.id }),
+    })
     .build()
 
 export const mocked = {
     findUserById,
     findUserBySlug,
-    findMajorUsers,
-    findUsersWithPosts
 }

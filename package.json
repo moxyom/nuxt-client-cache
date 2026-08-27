@@ -1,9 +1,12 @@
 {
-    "name": "mox-client-cache",
-    "version": "1.0.0",
-    "description": "My new Nuxt module",
-    "repository": "your-org/my-module",
-    "license": "MIT",
+    "name": "@moxyom/nuxt-client-cache",
+    "version": "0.1.0-beta",
+    "description": "A reactive client cache for nuxt",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/moxyom/nuxt-client-cache.git"
+    },
+    "license": "LGPL-3.0",
     "type": "module",
     "exports": {
         ".": {
@@ -49,9 +52,10 @@
         "changelogen": "^0.6.2",
         "eslint": "^9.39.3",
         "eslint-config-prettier": "^10.1.8",
-        "eslint-plugin-prettier": "^5.5.5",
+        "eslint-plugin-prettier": "^5.5.6",
         "madge": "^8.0.0",
         "nuxt": "^4.2.2",
+        "prettier": "^3.9.6",
         "typescript": "~5.9.3",
         "vitest": "^4.0.17",
         "vue-tsc": "^3.2.2"
