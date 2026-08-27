@@ -8,7 +8,7 @@
         "generate": "nuxt generate"
     },
     "dependencies": {
-        "@moxyom/nuxt-client-cache": "latest",
+        "@moxyom/nuxt-client-cache": "file:..",
         "nuxt": "^4.2.2"
     }
 }
