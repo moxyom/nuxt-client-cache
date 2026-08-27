@@ -1,27 +1,11 @@
-import { createConfigForNuxt } from '@nuxt/eslint-config/flat'
-import prettierPlugin from 'eslint-plugin-prettier'
-import prettierConfig from 'eslint-config-prettier'
+import { createConfigForNuxt } from "@nuxt/eslint-config/flat"
+import prettierPluginRecommended from "eslint-plugin-prettier/recommended"
 
-// Run `npx @eslint/config-inspector` to inspect the resolved config interactively
 export default createConfigForNuxt({
-    features: {
-        // Rules for module authors
-        tooling: true,
-        // Rules for formatting
-        stylistic: true,
-    },
     dirs: {
-        src: [
-            './playground',
-        ],
+        src: ["./playground", "./src"],
     },
-    plugins: {
-        prettier: prettierPlugin,
-      },
-      rules: {
-        'prettier/prettier': 'error',
-        semi: ['error', 'never'],
-        'operator-linebreak': ['error', 'before'],
-        'multiline-ternary': ['error', 'always-multiline'],
-      },
-}).append(prettierConfig)
+    features: {
+        stylistic: false,
+    },
+}).append(prettierPluginRecommended)

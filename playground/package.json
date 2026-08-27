@@ -1,6 +1,6 @@
 {
     "private": true,
-    "name": "my-module-playground",
+    "name": "@moxyom/nuxt-client-cache-playground",
     "type": "module",
     "scripts": {
         "dev": "nuxt dev",
@@ -8,7 +8,7 @@
         "generate": "nuxt generate"
     },
     "dependencies": {
-        "my-module": "latest",
+        "@moxyom/nuxt-client-cache": "latest",
         "nuxt": "^4.2.2"
     }
 }
