@@ -44,7 +44,7 @@ export default defineNuxtModule({
 
         // include main plugin
         // in charge of orchestrating
-        addPlugin(resolver.resolve("./plugin"))
+        addPlugin(resolver.resolve("./runtime/plugin"))
 
         // auto import defineCollection function
         addImports({

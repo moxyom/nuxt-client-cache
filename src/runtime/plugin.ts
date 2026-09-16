@@ -1,6 +1,6 @@
 import { defineNuxtPlugin } from "#app"
-import { createStoreFromDefinitions } from "./runtime/definitions"
-import type { CacheCollectionStore } from "./runtime/types/store"
+import { createStoreFromDefinitions } from "./definitions"
+import type { CacheCollectionStore } from "./types/store"
 
 export default defineNuxtPlugin(() => ({
     provide: {
