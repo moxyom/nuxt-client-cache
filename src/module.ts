@@ -15,6 +15,17 @@ export default defineNuxtModule({
     setup(_, nuxt) {
         const resolver = createResolver(import.meta.url)
 
+        // auto import utility functions
+        addImports({
+            name: "defineCollection",
+            from: resolver.resolve("./runtime/builder"),
+        })
+
+        addImports({
+            name: "shallowCollection",
+            from: resolver.resolve("./runtime/builder"),
+        })
+
         // read collection dir
         const moduleFolder = resolve(nuxt.options.srcDir, "cache-collections")
         if (!existsSync(moduleFolder)) return
@@ -45,16 +56,5 @@ export default defineNuxtModule({
         // include main plugin
         // in charge of orchestrating
         addPlugin(resolver.resolve("./runtime/plugin"))
-
-        // auto import defineCollection function
-        addImports({
-            name: "defineCollection",
-            from: resolver.resolve("./runtime/builder"),
-        })
-
-        addImports({
-            name: "shallowCollection",
-            from: resolver.resolve("./runtime/builder"),
-        })
     },
 })
