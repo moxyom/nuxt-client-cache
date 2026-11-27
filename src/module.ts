@@ -16,15 +16,26 @@ export default defineNuxtModule({
         const resolver = createResolver(import.meta.url)
 
         // auto import utility functions
-        addImports({
-            name: "defineCollection",
-            from: resolver.resolve("./runtime/builder"),
-        })
-
-        addImports({
-            name: "shallowCollection",
-            from: resolver.resolve("./runtime/builder"),
-        })
+        addImports([
+            {
+                name: "defineCollection",
+                from: resolver.resolve("./runtime/builder"),
+            },
+            {
+                name: "shallowCollection",
+                from: resolver.resolve("./runtime/builder"),
+            },
+            {
+                name: "ScopeFor",
+                from: resolver.resolve("./runtime/types/utilities"),
+                type: true,
+            },
+            {
+                name: "RecordFor",
+                from: resolver.resolve("./runtime/types/utilities"),
+                type: true,
+            },
+        ])
 
         // read collection dir
         const moduleFolder = resolve(nuxt.options.srcDir, "cache-collections")
